@@ -38,8 +38,6 @@ type TableStructure = {
 type InferType<FieldDefs extends Record<string, ColumnDef>> = {
   [K in keyof FieldDefs]: TypeMap[FieldDefs[K]['type']]
 }
-
-
 const structure = {
   tables: {
     students: {
@@ -155,9 +153,6 @@ async function loadTableData(structureKey: TableKey) {
     console.error(`Error loading ${endpoint}:`, error);
   }
 }
-const loadStudents = () => loadTableData('students');
-const loadSubjects = () => loadTableData('subjects');
-const loadEnrollments = () => loadTableData('enrollments');
 
 function renderAnyTable(tableKey: TableKey, tableStructure: TableStructure, records: Record<string, any>[]){
   const thead = sharedTable.querySelector('thead')!;
@@ -177,8 +172,8 @@ function renderAnyTable(tableKey: TableKey, tableStructure: TableStructure, reco
   records.forEach(record => {
     const {pk, uiName} = tableStructure;
     const pkFields = Array.isArray(pk) ? pk : [pk];
-    const actionArgs = pkFields
-      .map((field) => `'${encodeURIComponent(String(record[field] ?? ''))}'`)
+    const actionArgs = [tableKey, ...pkFields.map((field) => String(record[field] ?? ''))]
+      .map((value) => `'${encodeURIComponent(value)}'`)
       .join(', ');
     const row = document.createElement('tr');
     row.innerHTML = 
@@ -186,26 +181,14 @@ function renderAnyTable(tableKey: TableKey, tableStructure: TableStructure, reco
       +
     `
       <td class="actions">
-        <button class="edit-btn" onclick="edit${uiName}(${actionArgs})">Editar / Edit</button>
-        <button class="delete-btn" onclick="delete${uiName}(${actionArgs})">Eliminar / Delete</button>
+        <button class="edit-btn" onclick="editRecord(${actionArgs})">Editar / Edit</button>
+        <button class="delete-btn" onclick="deleteRecord(${actionArgs})">Eliminar / Delete</button>
       </td>
     `;
     tbody.appendChild(row);
   });
 }
 
-// Render table functions
-function renderStudentsTable(students: Student[]) {
-  console.log(`viendo los estudiantes que arrancan con ${students[0].first_name}`)
-  return renderAnyTable('students', structure.tables.students, students);
-}
-
-function renderSubjectsTable(subjects: Subject[]) {
-  return renderAnyTable('subjects', structure.tables.subjects, subjects);
-}
-
-function renderEnrollmentsTable(enrollments: Enrollment[]) {
-  return renderAnyTable('enrollments', structure.tables.enrollments, enrollments);}
 
 // Form functions
 type TableKey = keyof typeof structure.tables;
@@ -299,6 +282,10 @@ function collectFormData(tableKey: TableKey): Record<string, any> {
   return payload;
 }
 
+function getRecordPath(tableKey: TableKey, recordValues: string[]): string {
+  return `/${recordValues.map((value) => encodeURIComponent(value)).join('/')}`;
+}
+
 function hideAnyForm(): void {
   formContainer.style.display = 'none';
   formContainer.innerHTML = '';
@@ -358,65 +345,27 @@ async function showAnyForm(tableKey: TableKey, record?: Record<string, any>): Pr
 (window as any).hideAnyForm = hideAnyForm;
 
 // Global functions for onclick
-(window as any).editStudent = async (numero_libreta: string) => {
+(window as any).editRecord = async (tableKey: TableKey, ...pkValues: string[]) => {
   try {
-    const response = await fetch(`${API_BASE}/students/${numero_libreta}`);
-    const student: Student = await response.json();
-    showAnyForm('students', student);
+    const tableConfig = structure.tables[tableKey];
+    const endpoint = ('endpoint' in tableConfig && tableConfig.endpoint) ? tableConfig.endpoint : tableKey;
+    const response = await fetch(`${API_BASE}/${endpoint}${getRecordPath(tableKey, pkValues)}`);
+    const record = await response.json();
+    showAnyForm(tableKey, record);
   } catch (error) {
-    console.error('Error loading student for edit:', error);
+    console.error(`Error loading ${tableKey} for edit:`, error);
   }
 };
 
-(window as any).deleteStudent = async (numero_libreta: string) => {
-  if (confirm('¿Está seguro de que desea eliminar este alumno? / Are you sure you want to delete this student?')) {
+(window as any).deleteRecord = async (tableKey: TableKey, ...pkValues: string[]) => {
+  const tableConfig = structure.tables[tableKey];
+  const endpoint = ('endpoint' in tableConfig && tableConfig.endpoint) ? tableConfig.endpoint : tableKey;
+  if (confirm(`¿Está seguro de que desea eliminar este ${tableConfig.uiName.toLowerCase()}? / Are you sure you want to delete this ${tableConfig.uiName.toLowerCase()}?`)) {
     try {
-      await fetch(`${API_BASE}/students/${numero_libreta}`, { method: 'DELETE' });
-      loadStudents();
+      await fetch(`${API_BASE}/${endpoint}${getRecordPath(tableKey, pkValues)}`, { method: 'DELETE' });
+      loadTableData(tableKey);
     } catch (error) {
-      console.error('Error deleting student:', error);
-    }
-  }
-};
-
-(window as any).editSubject = async (cod_mat: string) => {
-  try {
-    const response = await fetch(`${API_BASE}/subjects/${cod_mat}`);
-    const subject: Subject = await response.json();
-    showAnyForm('subjects', subject);
-  } catch (error) {
-    console.error('Error loading subject for edit:', error);
-  }
-};
-
-(window as any).deleteSubject = async (cod_mat: string) => {
-  if (confirm('¿Está seguro de que desea eliminar esta materia? / Are you sure you want to delete this subject?')) {
-    try {
-      await fetch(`${API_BASE}/subjects/${cod_mat}`, { method: 'DELETE' });
-      loadSubjects();
-    } catch (error) {
-      console.error('Error deleting subject:', error);
-    }
-  }
-};
-
-(window as any).editEnrollment = async (numero_libreta: string, cod_mat: string) => {
-  try {
-    const response = await fetch(`${API_BASE}/enrollments/${numero_libreta}/${cod_mat}`);
-    const enrollment: Enrollment = await response.json();
-    showAnyForm('enrollments', enrollment);
-  } catch (error) {
-    console.error('Error loading enrollment for edit:', error);
-  }
-};
-
-(window as any).deleteEnrollment = async (numero_libreta: string, cod_mat: string) => {
-  if (confirm('¿Está seguro de que desea eliminar esta inscripción? / Are you sure you want to delete this enrollment?')) {
-    try {
-      await fetch(`${API_BASE}/enrollments/${numero_libreta}/${cod_mat}`, { method: 'DELETE' });
-      loadEnrollments();
-    } catch (error) {
-      console.error('Error deleting enrollment:', error);
+      console.error(`Error deleting ${tableKey}:`, error);
     }
   }
 };
