@@ -9,7 +9,7 @@ RUN npm install
 # Build frontend assets
 COPY frontend/src ./src
 COPY frontend/index.html ./
-COPY frontend/copy-static.js ./
+COPY frontend/copy-static.cjs ./
 COPY frontend/tsconfig.json ./
 RUN npm run build
 

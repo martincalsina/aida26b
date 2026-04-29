@@ -12,7 +12,7 @@ RUN npm install
 COPY src ./src
 COPY index.html ./
 COPY tsconfig.json ./
-COPY copy-static.js ./
+COPY copy-static.cjs ./
 
 # Build the application
 RUN npm run build
