@@ -25,6 +25,11 @@ CREATE TABLE students (
     status VARCHAR(50) -- e.g., active, graduated, interrupted
 );
 
+CREATE TABLE departments (
+    cod_dep VARCHAR(20) PRIMARY KEY,
+    name VARCHAR(200) NOT NULL
+);
+
 -- Subjects table
 -- cod_mat is the primary key
 CREATE TABLE subjects (
@@ -32,7 +37,7 @@ CREATE TABLE subjects (
     name VARCHAR(200) NOT NULL,
     description TEXT,
     credits INTEGER,
-    department VARCHAR(100)
+    cod_dep VARCHAR(20) REFERENCES departments(cod_dep)
 );
 
 -- Enrollments table
@@ -53,3 +58,4 @@ CREATE INDEX idx_enrollments_status ON enrollments(status);
 GRANT SELECT, UPDATE, INSERT, DELETE ON students TO aida26_user;
 GRANT SELECT, UPDATE, INSERT, DELETE ON enrollments TO aida26_user;
 GRANT SELECT, UPDATE, INSERT, DELETE ON subjects TO aida26_user;
+GRANT SELECT, UPDATE, INSERT, DELETE ON departments TO aida26_user;
