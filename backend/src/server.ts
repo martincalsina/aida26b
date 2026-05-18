@@ -94,10 +94,109 @@ app.delete('/api/students/:numero_libreta', async (req, res) => {
   }
 });
 
+// Departments routes
+app.get('/api/departments', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT * FROM departments ORDER BY cod_dep'
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching departments:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.get('/api/departments/:cod_dep', async (req, res) => {
+  try {
+    const { cod_dep } = req.params;
+
+    const result = await pool.query(
+      'SELECT * FROM departments WHERE cod_dep = $1',
+      [cod_dep]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Department not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error fetching departments:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/api/departments', async (req, res) => {
+  try {
+    const { cod_dep, name } = req.body;
+    const result = await pool.query(
+      'INSERT INTO departments (cod_dep, name) VALUES ($1, $2) RETURNING *',
+      [cod_dep, name]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Error creating department:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.put('/api/departments/:cod_dep', async (req, res) => {
+  try {
+    const { cod_dep } = req.params;
+    const { name } = req.body;
+
+    const result = await pool.query(
+      `UPDATE departments
+       SET name = $1
+       WHERE cod_dep = $2
+       RETURNING *`,
+      [name, cod_dep]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Department not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error updating departments:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.delete('/api/departments/:cod_dep', async (req, res) => {
+  try {
+    const { cod_dep } = req.params;
+
+    const result = await pool.query(
+      'DELETE FROM departments WHERE cod_dep = $1 RETURNING *',
+      [cod_dep]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Department not found' });
+    }
+
+    res.json({ message: 'Department deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting departments:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+
 // Subjects routes
 app.get('/api/subjects', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM subjects ORDER BY cod_mat');
+    const result = await pool.query(`
+      SELECT s.*, d.name AS department_name
+      FROM subjects s
+      LEFT JOIN departments d ON s.cod_dep = d.cod_dep
+      ORDER BY s.cod_mat
+    `);
+
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching subjects:', error);
@@ -108,10 +207,18 @@ app.get('/api/subjects', async (req, res) => {
 app.get('/api/subjects/:cod_mat', async (req, res) => {
   try {
     const { cod_mat } = req.params;
-    const result = await pool.query('SELECT * FROM subjects WHERE cod_mat = $1', [cod_mat]);
+
+    const result = await pool.query(`
+      SELECT s.*, d.name AS department_name
+      FROM subjects s
+      LEFT JOIN departments d ON s.cod_dep = d.cod_dep
+      WHERE s.cod_mat = $1
+    `, [cod_mat]);
+
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Subject not found' });
     }
+
     res.json(result.rows[0]);
   } catch (error) {
     console.error('Error fetching subject:', error);
@@ -121,11 +228,16 @@ app.get('/api/subjects/:cod_mat', async (req, res) => {
 
 app.post('/api/subjects', async (req, res) => {
   try {
-    const { cod_mat, name, description, credits, department } = req.body;
+    const { cod_mat, name, description, credits, cod_dep } = req.body;
+
     const result = await pool.query(
-      'INSERT INTO subjects (cod_mat, name, description, credits, department) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [cod_mat, name, description, credits, department]
+      `INSERT INTO subjects
+       (cod_mat, name, description, credits, cod_dep)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING *`,
+      [cod_mat, name, description, credits, cod_dep]
     );
+
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error('Error creating subject:', error);
@@ -136,14 +248,23 @@ app.post('/api/subjects', async (req, res) => {
 app.put('/api/subjects/:cod_mat', async (req, res) => {
   try {
     const { cod_mat } = req.params;
-    const { name, description, credits, department } = req.body;
+    const { name, description, credits, cod_dep } = req.body;
+
     const result = await pool.query(
-      'UPDATE subjects SET name = $1, description = $2, credits = $3, department = $4 WHERE cod_mat = $5 RETURNING *',
-      [name, description, credits, department, cod_mat]
+      `UPDATE subjects
+       SET name = $1,
+           description = $2,
+           credits = $3,
+           cod_dep = $4
+       WHERE cod_mat = $5
+       RETURNING *`,
+      [name, description, credits, cod_dep, cod_mat]
     );
+
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Subject not found' });
     }
+
     res.json(result.rows[0]);
   } catch (error) {
     console.error('Error updating subject:', error);
@@ -154,10 +275,16 @@ app.put('/api/subjects/:cod_mat', async (req, res) => {
 app.delete('/api/subjects/:cod_mat', async (req, res) => {
   try {
     const { cod_mat } = req.params;
-    const result = await pool.query('DELETE FROM subjects WHERE cod_mat = $1 RETURNING *', [cod_mat]);
+
+    const result = await pool.query(
+      'DELETE FROM subjects WHERE cod_mat = $1 RETURNING *',
+      [cod_mat]
+    );
+
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Subject not found' });
     }
+
     res.json({ message: 'Subject deleted successfully' });
   } catch (error) {
     console.error('Error deleting subject:', error);

@@ -117,13 +117,42 @@ const structure = {
       title: 'Alumnos / Students',
       addButtonLabel: 'Agregar Alumno / Add Student'
     } satisfies TableStructure,
+    departments: {
+      columns: {
+        cod_dep: {
+          type: 'string',
+          label: 'Código / Code:',
+          required: true,
+          readonlyOnEdit: true
+        },
+        name: {
+          type: 'string',
+          label: 'Nombre / Name:',
+          required: true
+        },
+      },
+      pk: 'cod_dep',
+      uiName: 'Department',
+      title: 'Departamentos / Departments',
+      addButtonLabel: 'Agregar Departamento / Add Department'
+    } satisfies TableStructure,
     subjects: {
       columns:{
         cod_mat     :{type: 'string', label: 'Código / Code:', required: true, readonlyOnEdit: true},
         name        :{type: 'string', label: 'Nombre / Name:', required: true},
         description :{type: 'string', label: 'Descripción / Description:', input: 'textarea'},
         credits     :{type: 'number', label: 'Créditos / Credits:', input: 'number', nullable: false},
-        department  :{type: 'string', label: 'Departamento / Department:'},
+        cod_dep: {
+          type: 'string',
+          label: 'Departamento / Department:',
+          input: 'select',
+          foreignKey: {
+            table: 'departments',
+            valueField: 'cod_dep',
+            labelField: 'name'
+          }
+        },
+        department_name: { type: 'string', label: 'Nombre de Departamento / Department Name:', editable: false },
       },
       pk: 'cod_mat',
       uiName: 'Subject',
@@ -312,10 +341,11 @@ async function renderFormField<K extends TableKey>(tableKey: K, fieldName: keyof
   const rendererKey = mapInputToRenderer(column.input);
   const renderer = getRenderer<K>(rendererKey);
 
+
+
   if (column.foreignKey) {
     
     const fk = column.foreignKey;
-
     const response = await fetch(`${API_BASE}/${fk.table}`);
     const rows = await response.json();
 
