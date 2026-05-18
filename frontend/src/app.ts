@@ -16,6 +16,10 @@ type ForeignKeyDef = {
   table: string;
   valueField: string;
   labelField: string;
+  dependsOn?: {
+    field: string;
+    foreignField: string;
+  };
 };
 
 type ColumnDef = {
@@ -167,15 +171,29 @@ const structure = {
             foreignKey: {
               table: "students",
               valueField: "numero_libreta",
-              labelField: "numero_libreta"
+              labelField: "numero_libreta",
             }
           },
           student_name: { type: 'string', label: 'Nombre del Alumno / Student Name:', editable: false },
+          cod_dep: {
+            type: 'string',
+            label: 'Departamento / Department:',
+            input: 'select',
+            foreignKey: {
+              table: 'departments',
+              valueField: 'cod_dep',
+              labelField: 'name'
+            }
+          },
           cod_mat: { type: 'string', label: 'Código de Materia / Subject Code:', required: true, readonlyOnEdit: true, input: 'select', 
             foreignKey: {
               table: "subjects",
               valueField: 'cod_mat',
-              labelField: 'name'
+              labelField: 'name',
+              dependsOn: {
+                field: 'cod_dep',
+                foreignField: 'cod_dep'
+              },
             },
           },
           subject_name: { type: 'string', label: 'Nombre de Materia / Subject Name:', editable: false },
@@ -341,22 +359,88 @@ async function renderFormField<K extends TableKey>(tableKey: K, fieldName: keyof
   const rendererKey = mapInputToRenderer(column.input);
   const renderer = getRenderer<K>(rendererKey);
 
-
-
+  // foreign key
   if (column.foreignKey) {
-    
-    const fk = column.foreignKey;
-    const response = await fetch(`${API_BASE}/${fk.table}`);
-    const rows = await response.json();
 
-    column.options = rows.map((row: any) => ({
-      value: row[fk.valueField],
-      label: `${row[fk.valueField]} - ${row[fk.labelField]}`
-    }));
-  } 
+    const fk = column.foreignKey;
+
+    // si depende de alguien, que no muestre del tirón las opciones (lo hará luego sólo si el otro elige algo en el dependsOn)
+    if (!fk.dependsOn) {
+
+      const response = await fetch(`${API_BASE}/${fk.table}`);
+
+      const rows = await response.json();
+
+      column.options = rows.map((row: any) => ({
+        value: row[fk.valueField],
+        label: `${row[fk.valueField]} - ${row[fk.labelField]}`
+      }));
+    }
+
+  }
 
   const inputEl = renderer({ id, fieldName, column, record, isEdit });
   wrapper.appendChild(inputEl);
+
+  if (
+    column.foreignKey?.dependsOn &&
+    inputEl instanceof HTMLSelectElement
+  ) {
+   
+    const fk = column.foreignKey;
+
+    const parentId = getFieldElementId(
+      tableKey,
+      fk.dependsOn!.field
+    );
+
+    setTimeout(() => {
+
+      const parentSelect =
+        document.getElementById(parentId) as HTMLSelectElement | null;
+
+      if (!parentSelect) {console.log("parent not selected"); return;}
+
+      const loadOptions = async () => {
+
+        const value = parentSelect.value;
+
+        if (!value) {
+          inputEl.innerHTML = '';
+          return;
+        }
+
+        const response = await fetch(
+          `${API_BASE}/${fk.table}?${fk.dependsOn!.foreignField}=${encodeURIComponent(value)}`
+        );
+
+        const rows = await response.json();
+
+        inputEl.innerHTML = '';
+
+        rows.forEach((row: any) => {
+
+          const option = document.createElement('option');
+
+          option.value = row[fk.valueField];
+
+          option.textContent =
+            `${row[fk.valueField]} - ${row[fk.labelField]}`;
+
+          inputEl.appendChild(option);
+        });
+        
+      };
+
+      // carga inicial
+      loadOptions();
+
+      // recarga dinámica, cada que alguien seleccione algo en el select padre
+      parentSelect.addEventListener('change', loadOptions);
+
+    });
+  }
+
   return wrapper;
 }
 
@@ -400,19 +484,24 @@ async function showAnyForm<K extends TableKey>(tableKey: K, record?: Partial<Tab
   const isEdit = !!record;
   const formId = `${tableKey}-form`;
 
-  const fields = await Promise.all(
-  Object.entries(tableConfig.columns)
-    .filter(([, column]) => column.editable !== false)
-    .map(([fieldName, column]) =>
-      renderFormField(
-        tableKey,
-        fieldName as keyof TableRecordMap[K] & string,
-        column,
-        record,
-        isEdit
-      )
-    )
-);
+
+  const fields: HTMLElement[] = [];
+
+  // render secuencial
+  for (const [fieldName, column] of Object.entries(tableConfig.columns)) {
+
+    if (column.editable === false) continue;
+
+    const field = await renderFormField(
+      tableKey,
+      fieldName as keyof TableRecordMap[K] & string,
+      column,
+      record,
+      isEdit
+    );
+
+    fields.push(field);
+  }
 
   // build form DOM
   formContainer.innerHTML = '';
