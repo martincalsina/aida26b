@@ -188,6 +188,7 @@ app.delete('/api/departments/:cod_dep', async (req, res) => {
 
 
 // Subjects routes
+/*
 app.get('/api/subjects', async (req, res) => {
   try {
     const result = await pool.query(`
@@ -202,7 +203,38 @@ app.get('/api/subjects', async (req, res) => {
     console.error('Error fetching subjects:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
+});*/
+
+app.get('/api/subjects', async (req, res) => {
+  try {
+
+    const { cod_dep } = req.query;
+
+    let query = `
+      SELECT s.*, d.name AS department_name
+      FROM subjects s
+      LEFT JOIN departments d ON s.cod_dep = d.cod_dep
+    `;
+
+    const params: any[] = [];
+
+    if (cod_dep) {
+      query += ` WHERE s.cod_dep = $1 `;
+      params.push(cod_dep);
+    }
+
+    query += ` ORDER BY s.cod_mat`;
+
+    const result = await pool.query(query, params);
+
+    res.json(result.rows);
+
+  } catch (error) {
+    console.error('Error fetching subjects:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
+
 
 app.get('/api/subjects/:cod_mat', async (req, res) => {
   try {
