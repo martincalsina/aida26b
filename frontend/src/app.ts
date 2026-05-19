@@ -505,8 +505,14 @@ async function showAnyForm<K extends TableKey>(tableKey: K, record?: Partial<Tab
   const fields: HTMLElement[] = [];
 
   // POR AHORA SOLO PARA ENROLLMENTS, luego hay que generalizar 0.0
+  /* 
+    para generalizar habría que ver, para cada una de las foreign key de tableKey que tiene un dependsOn (en este caso
+    cod_mat debería fetchear los datos de la otra foreign key "independiente" (acá cod_dep) y completar el record (acá
+    enrollmentRecord) con lo que traiga  
+  */
   if (tableKey === 'enrollments') {
 
+    // cast siniestro para que no tire error
     const enrollmentRecord =
       record as (
         Partial<TableRecordMap['enrollments']> & {
@@ -514,14 +520,15 @@ async function showAnyForm<K extends TableKey>(tableKey: K, record?: Partial<Tab
         }
       ) | undefined;
 
-    if (enrollmentRecord?.cod_mat) {
+    if (enrollmentRecord?.cod_mat) { // si me pasan un record con data (porque estoy en un edit, ya sé algo sobre el enrollment), la fetcheo
 
       const subject = await fetch(
         `${API_BASE}/subjects/${enrollmentRecord.cod_mat}`
       ).then(r => r.json());
 
-      enrollmentRecord.cod_dep = subject.cod_dep;
+      enrollmentRecord.cod_dep = subject.cod_dep; // ESTO MODIFICA A `record`
     }
+
   }
 
   // render secuencial
@@ -589,7 +596,7 @@ async function showAnyForm<K extends TableKey>(tableKey: K, record?: Partial<Tab
     }
   });
 
-  setupDependentSelects(tableKey, record); //después de crear el dom ponemos los listeners entre selects
+  setupDependentSelects(tableKey, record); //después de crear el dom ponemos los listeners entre selects, record va a tener data si esto es un campo de edit
 
 }
 
