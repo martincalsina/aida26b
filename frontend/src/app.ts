@@ -60,8 +60,9 @@ const renderers: Record<'input'|'textarea'|'select', RendererFunc> = {
     (ta as HTMLTextAreaElement).value = String(record?.[fieldName] ?? '');
     return ta;
   },
-  select<K extends TableKey>({ id, fieldName, column, record }: RendererProps<K>) {
+  select<K extends TableKey>({ id, fieldName, column, record, isEdit }: RendererProps<K>) {
     const sel = document.createElement('select');
+    if (isEdit && column.readonlyOnEdit) { sel.disabled = true;}
     sel.id = id;
     if (column.required) sel.required = true;
     (column.options || []).forEach((opt: { value: string; label: string }) => {
@@ -176,6 +177,7 @@ const structure = {
           },
           student_name: { type: 'string', label: 'Nombre del Alumno / Student Name:', editable: false },
           cod_dep: {
+            readonlyOnEdit: true,
             type: 'string',
             label: 'Departamento / Department:',
             input: 'select',
@@ -386,7 +388,8 @@ async function renderFormField<K extends TableKey>(tableKey: K, fieldName: keyof
 }
 
 function setupDependentSelects<K extends TableKey>(
-  tableKey: K
+  tableKey: K,
+  record?: Partial<TableRecordMap[K]> 
 ) {
 
   const tableConfig = structure.tables[tableKey];
@@ -439,6 +442,14 @@ function setupDependentSelects<K extends TableKey>(
 
         childSelect.appendChild(option);
       });
+
+      // si estamos en modo edit, restauramos el valor del record
+      const currentValue = record?.[fieldName as keyof TableRecordMap[K]];
+
+      if (currentValue != null) {
+        childSelect.value = String(currentValue);
+      }
+
     };
 
     loadOptions();
@@ -493,6 +504,26 @@ async function showAnyForm<K extends TableKey>(tableKey: K, record?: Partial<Tab
 
   const fields: HTMLElement[] = [];
 
+  // POR AHORA SOLO PARA ENROLLMENTS, luego hay que generalizar 0.0
+  if (tableKey === 'enrollments') {
+
+    const enrollmentRecord =
+      record as (
+        Partial<TableRecordMap['enrollments']> & {
+          cod_dep?: string;
+        }
+      ) | undefined;
+
+    if (enrollmentRecord?.cod_mat) {
+
+      const subject = await fetch(
+        `${API_BASE}/subjects/${enrollmentRecord.cod_mat}`
+      ).then(r => r.json());
+
+      enrollmentRecord.cod_dep = subject.cod_dep;
+    }
+  }
+
   // render secuencial
   for (const [fieldName, column] of Object.entries(tableConfig.columns)) {
 
@@ -538,7 +569,7 @@ async function showAnyForm<K extends TableKey>(tableKey: K, record?: Partial<Tab
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const payload = collectFormData(tableKey);
-
+    console.log(payload);
     const pkPath = isEdit
         ? `/${getPkFields(tableKey)
           .map((fieldName) => encodeURIComponent(String((payload as Record<string, unknown>)[fieldName] ?? (record as Record<string, unknown> | undefined)?.[fieldName] ?? '')))
@@ -558,7 +589,7 @@ async function showAnyForm<K extends TableKey>(tableKey: K, record?: Partial<Tab
     }
   });
 
-  setupDependentSelects(tableKey); //después de crear el dom ponemos los listeners entre selects
+  setupDependentSelects(tableKey, record); //después de crear el dom ponemos los listeners entre selects
 
 }
 
