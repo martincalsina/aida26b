@@ -23,11 +23,57 @@ const pool = new Pool({
 app.use(cors());
 app.use(express.json());
 
+// Query builder helper for filtering, sorting, and pagination
+function buildListQuery(
+  tableNameOrCTE: string,
+  query: any,
+  allowedColumns: string[],
+  defaultSort: string
+) {
+  const conditions: string[] = [];
+  const values: any[] = [];
+  let paramIndex = 1;
+
+  for (const [key, value] of Object.entries(query)) {
+    if (key.startsWith('filter_')) {
+      const col = key.replace('filter_', '');
+      if (allowedColumns.includes(col) && value) {
+        conditions.push(`"${col}"::text ILIKE $${paramIndex}`);
+        values.push(`%${value}%`);
+        paramIndex++;
+      }
+    }
+  }
+
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  const sortCol = query.sort && allowedColumns.includes(query.sort as string) ? query.sort : defaultSort;
+  const sortDir = query.dir === 'desc' ? 'DESC' : 'ASC';
+  const orderClause = `ORDER BY "${sortCol}" ${sortDir}`;
+
+  const page = parseInt(query.page as string) || 1;
+  const limit = parseInt(query.limit as string) || 10;
+  const offset = (page - 1) * limit;
+
+  const fromClause = tableNameOrCTE.includes(' ') ? `FROM (${tableNameOrCTE}) as base` : `FROM ${tableNameOrCTE}`;
+
+  const dataQuery = `SELECT * ${fromClause} ${whereClause} ${orderClause} LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+  const dataValues = [...values, limit, offset];
+
+  const countQuery = `SELECT COUNT(*) ${fromClause} ${whereClause}`;
+
+  return { dataQuery, dataValues, countQuery, countValues: values };
+}
+
 // Routes
 app.get('/api/students', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM students ORDER BY numero_libreta');
-    res.json(result.rows);
+    const allowed = ['numero_libreta', 'dni', 'first_name', 'last_name', 'email', 'enrollment_date', 'status'];
+    const { dataQuery, dataValues, countQuery, countValues } = buildListQuery('students', req.query, allowed, 'numero_libreta');
+    const [dataResult, countResult] = await Promise.all([
+      pool.query(dataQuery, dataValues),
+      pool.query(countQuery, countValues)
+    ]);
+    res.json({ data: dataResult.rows, total: parseInt(countResult.rows[0].count) });
   } catch (error) {
     console.error('Error fetching students:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -97,8 +143,13 @@ app.delete('/api/students/:numero_libreta', async (req, res) => {
 // Subjects routes
 app.get('/api/subjects', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM subjects ORDER BY cod_mat');
-    res.json(result.rows);
+    const allowed = ['cod_mat', 'name', 'description', 'credits', 'department'];
+    const { dataQuery, dataValues, countQuery, countValues } = buildListQuery('subjects', req.query, allowed, 'cod_mat');
+    const [dataResult, countResult] = await Promise.all([
+      pool.query(dataQuery, dataValues),
+      pool.query(countQuery, countValues)
+    ]);
+    res.json({ data: dataResult.rows, total: parseInt(countResult.rows[0].count) });
   } catch (error) {
     console.error('Error fetching subjects:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -168,14 +219,19 @@ app.delete('/api/subjects/:cod_mat', async (req, res) => {
 // Enrollments routes
 app.get('/api/enrollments', async (req, res) => {
   try {
-    const result = await pool.query(`
-      SELECT e.*, s.first_name, s.last_name, sub.name as subject_name
+    const baseQuery = `
+      SELECT e.*, s.first_name || ' ' || s.last_name as student_name, sub.name as subject_name
       FROM enrollments e
       JOIN students s ON e.numero_libreta = s.numero_libreta
       JOIN subjects sub ON e.cod_mat = sub.cod_mat
-      ORDER BY e.numero_libreta, e.cod_mat
-    `);
-    res.json(result.rows);
+    `;
+    const allowed = ['numero_libreta', 'student_name', 'cod_mat', 'subject_name', 'enrollment_date', 'grade', 'status'];
+    const { dataQuery, dataValues, countQuery, countValues } = buildListQuery(baseQuery, req.query, allowed, 'numero_libreta');
+    const [dataResult, countResult] = await Promise.all([
+      pool.query(dataQuery, dataValues),
+      pool.query(countQuery, countValues)
+    ]);
+    res.json({ data: dataResult.rows, total: parseInt(countResult.rows[0].count) });
   } catch (error) {
     console.error('Error fetching enrollments:', error);
     res.status(500).json({ error: 'Internal server error' });

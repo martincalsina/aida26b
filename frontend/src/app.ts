@@ -35,7 +35,7 @@ type RendererProps<K extends TableKey> = {
 };
 type RendererFunc = <K extends TableKey>(props: RendererProps<K>) => HTMLElement;
 
-const renderers: Record<'input'|'textarea'|'select', RendererFunc> = {
+const renderers: Record<'input' | 'textarea' | 'select', RendererFunc> = {
   input<K extends TableKey>({ id, fieldName, column, record, isEdit }: RendererProps<K>) {
     const inp = document.createElement('input');
     inp.id = id;
@@ -94,18 +94,20 @@ type InferType<FieldDefs extends Record<string, ColumnDef>> = {
 const structure = {
   tables: {
     students: {
-      columns:{
-        numero_libreta   :{type: 'string', label: "Número de Libreta / Student ID:", required: true, readonlyOnEdit: true},
-        dni              :{type: 'string', label: 'DNI / ID Number:', required: true},
-        first_name       :{type: 'string', label: 'Nombre / First Name:', required: true},
-        last_name        :{type: 'string', label: 'Apellido / Last Name:', required: true},
-        email            :{type: 'string', label: 'Email:', input: 'email'},
-        enrollment_date  :{type: 'string', label: 'Fecha de Inscripción / Enrollment Date:', input: 'date'},
-        status           :{type: 'string', label: 'Estado / Status:', input: 'select', options: [
-          { value: 'active', label: 'Activo / Active' },
-          { value: 'graduated', label: 'Graduado / Graduated' },
-          { value: 'interrupted', label: 'Interrumpido / Interrupted' },
-        ]},
+      columns: {
+        numero_libreta: { type: 'string', label: "Número de Libreta / Student ID:", required: true, readonlyOnEdit: true },
+        dni: { type: 'string', label: 'DNI / ID Number:', required: true },
+        first_name: { type: 'string', label: 'Nombre / First Name:', required: true },
+        last_name: { type: 'string', label: 'Apellido / Last Name:', required: true },
+        email: { type: 'string', label: 'Email:', input: 'email' },
+        enrollment_date: { type: 'string', label: 'Fecha de Inscripción / Enrollment Date:', input: 'date' },
+        status: {
+          type: 'string', label: 'Estado / Status:', input: 'select', options: [
+            { value: 'active', label: 'Activo / Active' },
+            { value: 'graduated', label: 'Graduado / Graduated' },
+            { value: 'interrupted', label: 'Interrumpido / Interrupted' },
+          ]
+        },
       },
       pk: 'numero_libreta',
       uiName: 'Student',
@@ -113,12 +115,12 @@ const structure = {
       addButtonLabel: 'Agregar Alumno / Add Student'
     } satisfies TableStructure,
     subjects: {
-      columns:{
-        cod_mat     :{type: 'string', label: 'Código / Code:', required: true, readonlyOnEdit: true},
-        name        :{type: 'string', label: 'Nombre / Name:', required: true},
-        description :{type: 'string', label: 'Descripción / Description:', input: 'textarea'},
-        credits     :{type: 'number', label: 'Créditos / Credits:', input: 'number', nullable: false},
-        department  :{type: 'string', label: 'Departamento / Department:'},
+      columns: {
+        cod_mat: { type: 'string', label: 'Código / Code:', required: true, readonlyOnEdit: true },
+        name: { type: 'string', label: 'Nombre / Name:', required: true },
+        description: { type: 'string', label: 'Descripción / Description:', input: 'textarea' },
+        credits: { type: 'number', label: 'Créditos / Credits:', input: 'number', nullable: false },
+        department: { type: 'string', label: 'Departamento / Department:' },
       },
       pk: 'cod_mat',
       uiName: 'Subject',
@@ -126,25 +128,27 @@ const structure = {
       addButtonLabel: 'Agregar Materia / Add Subject'
     } satisfies TableStructure,
     enrollments: {
-        pk: ['numero_libreta', 'cod_mat'],
-        uiName: 'Enrollment',
-        columns: {
-          numero_libreta: { type: 'string', label: 'Número de Libreta / Student ID:', required: true, readonlyOnEdit: true },
-          student_name: { type: 'string', label: 'Nombre del Alumno / Student Name:', editable: false },
-          cod_mat: { type: 'string', label: 'Código de Materia / Subject Code:', required: true, readonlyOnEdit: true },
-          subject_name: { type: 'string', label: 'Nombre de Materia / Subject Name:', editable: false },
-          enrollment_date: { type: 'string', label: 'Fecha de Inscripción / Enrollment Date:', input: 'date', required: true },
-          grade: { type: 'number', label: 'Nota / Grade:', input: 'number', nullable: true },
-          status: { type: 'string', label: 'Estado / Status:', input: 'select', options: [
+      pk: ['numero_libreta', 'cod_mat'],
+      uiName: 'Enrollment',
+      columns: {
+        numero_libreta: { type: 'string', label: 'Número de Libreta / Student ID:', required: true, readonlyOnEdit: true },
+        student_name: { type: 'string', label: 'Nombre del Alumno / Student Name:', editable: false },
+        cod_mat: { type: 'string', label: 'Código de Materia / Subject Code:', required: true, readonlyOnEdit: true },
+        subject_name: { type: 'string', label: 'Nombre de Materia / Subject Name:', editable: false },
+        enrollment_date: { type: 'string', label: 'Fecha de Inscripción / Enrollment Date:', input: 'date', required: true },
+        grade: { type: 'number', label: 'Nota / Grade:', input: 'number', nullable: true },
+        status: {
+          type: 'string', label: 'Estado / Status:', input: 'select', options: [
             { value: 'enrolled', label: 'Inscrito / Enrolled' },
             { value: 'completed', label: 'Completado / Completed' },
             { value: 'failed', label: 'Fallido / Failed' },
-          ] }
+          ]
         }
+      }
       ,
-        title: 'Inscripciones / Enrollments',
-        addButtonLabel: 'Agregar Inscripción / Add Enrollment'
-      } satisfies TableStructure
+      title: 'Inscripciones / Enrollments',
+      addButtonLabel: 'Agregar Inscripción / Add Enrollment'
+    } satisfies TableStructure
   }
 }
 
@@ -180,26 +184,187 @@ for (const key of tableKeys) {
 
 let activeTableKey: TableKey = tableKeys[0] as TableKey;
 
-function showSection(section: TableKey) {
+// --- State Management ---
+type TableState = {
+  page: number;
+  limit: number;
+  sort?: string;
+  dir?: 'asc' | 'desc';
+  filters: Record<string, string>;
+};
+
+let currentState: TableState = {
+  page: 1,
+  limit: 10,
+  filters: {}
+};
+
+function syncStateToUrl() {
+  const params = new URLSearchParams();
+  params.set('table', activeTableKey);
+  params.set('page', String(currentState.page));
+  params.set('limit', String(currentState.limit));
+  if (currentState.sort) {
+    params.set('sort', currentState.sort);
+    params.set('dir', currentState.dir || 'asc');
+  }
+  Object.entries(currentState.filters).forEach(([k, v]) => {
+    if (v) params.set(`filter_${k}`, v);
+  });
+  window.history.pushState({}, '', `?${params.toString()}`);
+}
+
+function syncUrlToState() {
+  const params = new URLSearchParams(window.location.search);
+  const table = params.get('table') as TableKey;
+  if (table && structure.tables[table]) {
+    activeTableKey = table;
+  }
+  currentState.page = parseInt(params.get('page') || '1');
+  currentState.limit = parseInt(params.get('limit') || '10');
+  currentState.sort = params.get('sort') || undefined;
+  currentState.dir = (params.get('dir') as 'asc' | 'desc') || undefined;
+
+  currentState.filters = {};
+  params.forEach((v, k) => {
+    if (k.startsWith('filter_')) {
+      currentState.filters[k.replace('filter_', '')] = v;
+    }
+  });
+}
+
+window.addEventListener('popstate', () => {
+  syncUrlToState();
+  showSection(activeTableKey, false);
+});
+
+const filterContainer = document.createElement('div');
+filterContainer.className = 'filter-container';
+filterContainer.style.display = 'flex';
+filterContainer.style.gap = '10px';
+filterContainer.style.flexWrap = 'wrap';
+filterContainer.style.marginBottom = '15px';
+sharedTable.parentNode?.insertBefore(filterContainer, sharedTable);
+
+const paginationContainer = document.createElement('div');
+paginationContainer.className = 'pagination-container';
+paginationContainer.style.marginTop = '15px';
+paginationContainer.style.display = 'flex';
+paginationContainer.style.gap = '10px';
+paginationContainer.style.alignItems = 'center';
+sharedTable.parentNode?.insertBefore(paginationContainer, sharedTable.nextSibling);
+
+function renderFilters<K extends TableKey>(tableKey: K) {
+  filterContainer.innerHTML = '';
+  const tableStructure = structure.tables[tableKey];
+
+  Object.entries(tableStructure.columns).forEach(([fieldName, column]) => {
+    const wrapper = document.createElement('div');
+    wrapper.style.display = 'flex';
+    wrapper.style.flexDirection = 'column';
+    wrapper.style.fontSize = '0.9em';
+
+    const label = document.createElement('label');
+    label.textContent = column.label || fieldName;
+    wrapper.appendChild(label);
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = currentState.filters[fieldName] || '';
+    input.placeholder = 'Filtrar...';
+    input.style.padding = '4px';
+
+    input.addEventListener('change', (e) => {
+      const val = (e.target as HTMLInputElement).value.trim();
+      if (val) {
+        currentState.filters[fieldName] = val;
+      } else {
+        delete currentState.filters[fieldName];
+      }
+      currentState.page = 1;
+      syncStateToUrl();
+      loadTableData(tableKey);
+    });
+
+    wrapper.appendChild(input);
+    filterContainer.appendChild(wrapper);
+  });
+}
+
+function renderPagination(total: number) {
+  paginationContainer.innerHTML = '';
+  const totalPages = Math.ceil(total / currentState.limit) || 1;
+
+  const info = document.createElement('span');
+  info.textContent = `Página ${currentState.page} de ${totalPages} (Total: ${total})`;
+  paginationContainer.appendChild(info);
+
+  const prevBtn = document.createElement('button');
+  prevBtn.textContent = 'Anterior';
+  prevBtn.disabled = currentState.page <= 1;
+  prevBtn.addEventListener('click', () => {
+    if (currentState.page > 1) {
+      currentState.page--;
+      syncStateToUrl();
+      loadTableData(activeTableKey);
+    }
+  });
+  paginationContainer.appendChild(prevBtn);
+
+  const nextBtn = document.createElement('button');
+  nextBtn.textContent = 'Siguiente';
+  nextBtn.disabled = currentState.page >= totalPages;
+  nextBtn.addEventListener('click', () => {
+    if (currentState.page < totalPages) {
+      currentState.page++;
+      syncStateToUrl();
+      loadTableData(activeTableKey);
+    }
+  });
+  paginationContainer.appendChild(nextBtn);
+}
+
+function showSection(section: TableKey, pushState = true) {
+  if (activeTableKey !== section && pushState) {
+    currentState = { page: 1, limit: 10, filters: {} };
+  }
   activeTableKey = section;
+
+  if (pushState) syncStateToUrl();
 
   Object.entries(tableNavButtons).forEach(([key, button]) => {
     button.classList.toggle('active', key === section);
   });
 
   const tableConfig = structure.tables[section];
-  viewTitle.textContent = tableConfig.title;
+  viewTitle.textContent = tableConfig.title ?? tableConfig.uiName;
   addRecordBtn.textContent = tableConfig.addButtonLabel || `Agregar ${tableConfig.uiName} / Add ${tableConfig.uiName}`;
   hideAnyForm();
+  renderFilters(section);
   loadTableData(section);
 }
 
 //Load 
-async function loadTableData<K extends TableKey>(tableKey: K) {    
+async function loadTableData<K extends TableKey>(tableKey: K) {
   try {
-    const response = await fetch(`${API_BASE}/${tableKey}`);
-    const data = (await response.json()) as TableRecordMap[K][];
+    const params = new URLSearchParams();
+    params.set('page', String(currentState.page));
+    params.set('limit', String(currentState.limit));
+    if (currentState.sort) {
+      params.set('sort', currentState.sort);
+      params.set('dir', currentState.dir || 'asc');
+    }
+    Object.entries(currentState.filters).forEach(([k, v]) => {
+      if (v) params.set(`filter_${k}`, v);
+    });
+
+    const response = await fetch(`${API_BASE}/${tableKey}?${params.toString()}`);
+    const result = await response.json();
+    const data = result.data as TableRecordMap[K][];
+    const total = result.total as number;
+
     renderAnyTable(tableKey, data);
+    renderPagination(total);
   } catch (error) {
     console.error(`Error loading ${tableKey}:`, error);
   }
@@ -213,9 +378,28 @@ function renderAnyTable<K extends TableKey>(tableKey: K, records: TableRecordMap
   tbody.innerHTML = '';
 
   const headerRow = document.createElement('tr');
-  Object.values(tableStructure.columns).forEach((column) => {
+  Object.entries(tableStructure.columns).forEach(([fieldName, column]) => {
     const th = document.createElement('th');
-    th.textContent = column.label;
+    th.textContent = column.label || fieldName;
+    th.style.cursor = 'pointer';
+    th.title = 'Click to sort';
+
+    if (currentState.sort === fieldName) {
+      th.textContent += currentState.dir === 'desc' ? ' ▼' : ' ▲';
+    }
+
+    th.addEventListener('click', () => {
+      if (currentState.sort === fieldName) {
+        currentState.dir = currentState.dir === 'asc' ? 'desc' : 'asc';
+      } else {
+        currentState.sort = fieldName;
+        currentState.dir = 'asc';
+      }
+      currentState.page = 1;
+      syncStateToUrl();
+      loadTableData(tableKey);
+    });
+
     headerRow.appendChild(th);
   });
 
@@ -223,7 +407,7 @@ function renderAnyTable<K extends TableKey>(tableKey: K, records: TableRecordMap
   actionsHeader.textContent = 'Acciones / Actions';
   headerRow.appendChild(actionsHeader);
   thead.appendChild(headerRow);
-  
+
   records.forEach((record) => {
     const { pk } = tableStructure;
     const pkFields = Array.isArray(pk) ? pk : [pk];
@@ -374,9 +558,9 @@ async function showAnyForm<K extends TableKey>(tableKey: K, record?: Partial<Tab
     const payload = collectFormData(tableKey);
 
     const pkPath = isEdit
-        ? `/${getPkFields(tableKey)
-          .map((fieldName) => encodeURIComponent(String((payload as Record<string, unknown>)[fieldName] ?? (record as Record<string, unknown> | undefined)?.[fieldName] ?? '')))
-          .join('/')}`
+      ? `/${getPkFields(tableKey)
+        .map((fieldName) => encodeURIComponent(String((payload as Record<string, unknown>)[fieldName] ?? (record as Record<string, unknown> | undefined)?.[fieldName] ?? '')))
+        .join('/')}`
       : '';
 
     try {
@@ -426,6 +610,7 @@ window.deleteRecord = async <K extends TableKey>(tableKey: K, ...pkValues: strin
 };
 
 // Initialize
-showSection(activeTableKey);
+syncUrlToState();
+showSection(activeTableKey, false);
 
-export {};
+export { };
