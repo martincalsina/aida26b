@@ -92,15 +92,6 @@ type InferType<FieldDefs extends Record<string, ColumnDef>> = {
   [K in keyof FieldDefs]: TypeMap[FieldDefs[K]['type']]
 }
 
-const translations = {
-  en:{
-    system_title: "University Management System",
-  },
-  es:{
-    system_title: "Sistema de Gestión Universitaria",
-  }
-}
-
 const structure = {
   tables: {
     students: {
@@ -160,11 +151,16 @@ const structure = {
     theme:{
       title: "🌙",
       handler: () => {
-        const current =document.body.getAttribute("data-theme");
-        if (current === "dark") {
-            document.body.setAttribute("data-theme","light");
-        } else {
-            document.body.setAttribute("data-theme","dark");
+        try {
+          const current = document.body.getAttribute("data-theme");
+          if (current === "dark") {
+            document.body.setAttribute("data-theme", "light");
+          } else {
+            document.body.setAttribute("data-theme", "dark");
+          }
+        } catch (err) {
+          console.error("Theme toggle failed:", err);
+          alert("Error al cambiar el tema / Error changing theme");
         }
       },
       id: "theme-toggle"
@@ -172,7 +168,12 @@ const structure = {
     lenguage: {
       title: "EN/ES",
       handler: () => {
-       
+        try {
+          alert("Funcionalidad de cambio de idioma no implementada / Language toggle not implemented");
+        } catch (err) {
+          console.error("Language toggle failed:", err);
+          alert("Error al cambiar el idioma / Error changing language");
+        }
       },
       id: "language-toggle"
     }
