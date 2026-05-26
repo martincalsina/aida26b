@@ -368,10 +368,19 @@ function createFilterControl(entry: FilterEntry, column: ColumnDef, onChange: ()
   inp.style.width = '150px';
   inp.addEventListener('change', () => {
     entry.value = inp.value || undefined;
+  });
+  
+  /*
+  inp.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    entry.value = inp.value || undefined;
     onChange();
   });
+  */
   return inp;
 }
+
 
 function renderFilters<K extends TableKey>(tableKey: K) {
   filterContainer.innerHTML = '';
