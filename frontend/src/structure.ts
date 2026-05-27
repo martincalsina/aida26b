@@ -1,6 +1,6 @@
 import {TableStructure} from './app.js';
 
-const structure = {
+export const structure = {
   tables: {
     students: {
       columns:{
