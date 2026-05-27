@@ -475,4 +475,4 @@ const showMenu = () => {
 showSection(activeTableKey);
 showMenu();
 
-export {};
+export {TableStructure};
