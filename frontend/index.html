@@ -109,22 +109,95 @@
             background-color: #6c757d;
             color: white;
         }
+        .auth-section {
+            max-width: 360px;
+            margin: 0 auto;
+        }
+        .top-bar, .toolbar, .admin-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        #admin-actions[hidden] {
+            display: none;
+        }
+        .top-bar {
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+        .toolbar {
+            flex-wrap: wrap;
+        }
+        .logout-btn {
+            background-color: #6c757d;
+            color: white;
+        }
+        .message {
+            margin-bottom: 12px;
+            color: #842029;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Sistema de Gestión Académica / Academic Management System</h1>
-        
-        <nav id="table-nav" class="nav"></nav>
 
-        <div id="records-section" class="section active">
-            <h2 id="view-title"></h2>
-            <button id="add-record-btn" class="add-btn"></button>
-            <div id="record-form" style="display: none;"></div>
-            <table id="records-table">
-                <thead></thead>
-                <tbody></tbody>
-            </table>
+        <section id="auth-section" class="auth-section">
+            <h2>Ingresar / Login</h2>
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="login-username">Usuario / Username</label>
+                    <input id="login-username" name="username" autocomplete="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="login-password">Contraseña / Password</label>
+                    <input id="login-password" name="password" type="password" autocomplete="current-password" required>
+                </div>
+                <p id="login-error" class="message" hidden></p>
+                <button type="submit" class="add-btn">Ingresar / Login</button>
+            </form>
+        </section>
+
+        <section id="password-section" class="auth-section" style="display: none;">
+            <h2>Cambiar contraseña / Change Password</h2>
+            <form id="password-form">
+                <div class="form-group">
+                    <label for="current-password">Contraseña actual / Current Password</label>
+                    <input id="current-password" name="current_password" type="password" required>
+                </div>
+                <div class="form-group">
+                    <label for="new-password">Nueva contraseña / New Password</label>
+                    <input id="new-password" name="new_password" type="password" minlength="8" required>
+                </div>
+                <p id="password-error" class="message" hidden></p>
+                <button type="submit" class="add-btn">Actualizar / Update</button>
+            </form>
+        </section>
+
+        <div id="app-shell" style="display: none;">
+            <div class="top-bar">
+                <span id="current-user"></span>
+                <button id="logout-btn" class="logout-btn">Salir / Logout</button>
+            </div>
+
+            <nav id="table-nav" class="nav"></nav>
+
+            <div id="records-section" class="section active">
+                <h2 id="view-title"></h2>
+                <p id="status-message" class="message" hidden></p>
+                <div class="toolbar">
+                    <button id="add-record-btn" class="add-btn"></button>
+                    <div id="admin-actions" class="admin-actions" hidden>
+                        <button id="add-teacher-btn" class="add-btn">Agregar Profesor / Add Professor</button>
+                        <button id="add-admin-btn" class="add-btn">Agregar Admin / Add Admin</button>
+                    </div>
+                </div>
+                <div id="record-form" style="display: none;"></div>
+                <table id="records-table">
+                    <thead></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
         </div>
     </div>
 
