@@ -1,4 +1,4 @@
-import { structure } from "../ssot/structure.js";
+import { structure } from "../ssot/structure";
 
 type TypeMap = {
   string: string;

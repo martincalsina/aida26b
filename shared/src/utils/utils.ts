@@ -1,5 +1,5 @@
-import { structure } from "../ssot/structure.js";
-import type { TableKey } from "../types/types.js";
+import { structure } from "../ssot/structure";
+import type { TableKey } from "../types/types";
 
 export function getPkFields(tableKey: TableKey): string[] {
   const tableConfig = structure.tables[tableKey];
