@@ -1,8 +1,8 @@
 // Main application file
 // Code and comments in English
-import {structure} from '../../shared/src/ssot/structure';
-import {TypeMap, MyTypeNames, ColumnDef, TableStructure, InferType, TableKey, TableRecordMap} from '../../shared/src/types/types';
-import {getPkFields} from '../../shared/src/utils/utils';
+import {structure} from '@shared/ssot/structure';
+import {TypeMap, MyTypeNames, ColumnDef, TableStructure, InferType, TableKey, TableRecordMap} from '@shared/types/types';
+import {getPkFields} from '@shared/utils/utils';
 import '../styles/style.css';
 
 const API_BASE = '/api';
