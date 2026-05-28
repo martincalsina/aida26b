@@ -361,9 +361,21 @@ async function renderFormField<K extends TableKey>(tableKey: K, fieldName: keyof
   const rendererKey = mapInputToRenderer(column.input);
   const renderer = getRenderer<K>(rendererKey);
 
+  await loadDefaultOptions(column);
+
+  const inputEl = renderer({ id, fieldName, column, record, isEdit });
+  wrapper.appendChild(inputEl);
+
+  return wrapper;
+}
+
+// loads selection options if the col values are given by a fk that doesn't depend on anybody else
+async function loadDefaultOptions(column: ColumnDef) {
+
   if (column.foreignKey) {
+    
     const fk = column.foreignKey;
-    // si depende de alguien, que no muestre del tirón las opciones (lo hará luego sólo si el otro elige algo en el dependsOn)
+
     if (!fk.dependsOn) {
       const response = await fetch(`${API_BASE}/${fk.table}`);
       const rows = await response.json();
@@ -372,11 +384,9 @@ async function renderFormField<K extends TableKey>(tableKey: K, fieldName: keyof
         label: `${row[fk.valueField]} - ${row[fk.labelField]}`
       }));
     }
+    
   }
-  const inputEl = renderer({ id, fieldName, column, record, isEdit });
-  wrapper.appendChild(inputEl);
 
-  return wrapper;
 }
 
 function setupDependentSelects<K extends TableKey>(
@@ -385,7 +395,9 @@ function setupDependentSelects<K extends TableKey>(
 ) {
   const tableConfig = structure.tables[tableKey];
   for (const [fieldName, column] of Object.entries(tableConfig.columns)) {
+    
     if (!column.foreignKey?.dependsOn) continue;
+    
     const fk = column.foreignKey;
     const childId = getFieldElementId(tableKey, fieldName);
     const parentId = getFieldElementId(tableKey, fk.dependsOn.field);
@@ -394,15 +406,40 @@ function setupDependentSelects<K extends TableKey>(
 
     if (!childSelect || !parentSelect) {console.log("childSelect or parentSelect didnt render"); continue;}
 
-    const loadOptions = async () => {
+    // first load
+    loadDependentOptions(parentSelect, childSelect, fk as ForeignKeyDef,  fieldName as keyof TableRecordMap[K], record);
+    
+    
+    parentSelect.addEventListener(
+      'change',
+       () => loadDependentOptions(parentSelect, childSelect, fk as ForeignKeyDef,  fieldName as keyof TableRecordMap[K], record)
+    );
+
+  }
+}
+
+
+// loads select options for a fk column whose values depend on another fk
+async function loadDependentOptions<K extends TableKey>(parentSelect: HTMLSelectElement, childSelect: HTMLSelectElement, fk: ForeignKeyDef, 
+  fieldName: keyof TableRecordMap[K],
+  record?: Partial<TableRecordMap[K]> 
+) {
+
+      if (!fk.dependsOn) return; 
+
       const value = parentSelect.value;
       childSelect.innerHTML = '';
+      
       if (!value) {console.log("parentSelect empty"); return;}
+      
       console.log("fetching");
+      
       const response = await fetch(
         `${API_BASE}/${fk.table}?${fk.dependsOn.foreignField}=${encodeURIComponent(value)}`
       );
+
       const rows = await response.json();
+
       rows.forEach((row: any) => {
         const option = document.createElement('option');
         option.value = row[fk.valueField];
@@ -415,14 +452,8 @@ function setupDependentSelects<K extends TableKey>(
       if (currentValue != null) {
         childSelect.value = String(currentValue);
       }
-    };
 
-    loadOptions();
-    parentSelect.addEventListener(
-      'change',
-      loadOptions
-    );
-  }
+    
 }
 
 function collectFormData<K extends TableKey>(tableKey: K): Partial<TableRecordMap[K]> {
