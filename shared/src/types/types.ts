@@ -1,5 +1,11 @@
 import { structure } from "../ssot/structure";
 
+type Response = {
+  success: boolean;
+  data: undefined | any;
+  message: string;
+}
+
 type TypeMap = {
   string: string;
   number: number;
@@ -38,4 +44,4 @@ type TableRecordMap = {
   [T in keyof typeof structure.tables]: InferType<(typeof structure.tables)[T]['columns']>
 };
 
-export type {TypeMap, MyTypeNames, ColumnDef, TableStructure, InferType, TableKey, TableRecordMap};
+export type {TypeMap, MyTypeNames, ColumnDef, TableStructure, InferType, TableKey, TableRecordMap, Response};

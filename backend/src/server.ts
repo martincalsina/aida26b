@@ -6,7 +6,7 @@ import path from 'path';
 import { getStudentsHandler, getSubjectsHandler, getEnrollmentsHandler } from './routes/get';
 import { updateStudent, updateSubject, updateEnrollment } from './routes/put';
 import { insertStudent, insertSubject, insertEnrollment } from './routes/post';
-import { deleteStudent, deleteSubject, deleteEnrollment } from './routes/delete';
+import { deleteHandler } from './routes/delete';
 
 
 
@@ -36,7 +36,7 @@ app.post('/api/students', async (req, res) => insertStudent(req, res, pool));
 
 app.put('/api/students', async (req, res) => updateStudent(req, res, pool));
 
-app.delete('/api/students', async (req, res) => deleteStudent(req, res, pool));
+app.delete('/api/:tableName', async (req, res) => deleteHandler(req, res, pool));
 
 // Subjects routes
 app.get('/api/subjects', async (req, res) => getSubjectsHandler(req, res, pool));
@@ -45,16 +45,12 @@ app.post('/api/subjects', async (req, res) => insertSubject(req, res, pool));
 
 app.put('/api/subjects', async (req, res) => updateSubject(req, res, pool));
 
-app.delete('/api/subjects', async (req, res) => deleteSubject(req, res, pool));
-
 // Enrollments routes
 app.get('/api/enrollments', async (req, res) => getEnrollmentsHandler(req, res, pool));
 
 app.post('/api/enrollments', async (req, res) => insertEnrollment(req, res, pool));
 
 app.put('/api/enrollments', async (req, res) => updateEnrollment(req, res, pool));
-
-app.delete('/api/enrollments', async (req, res) => deleteEnrollment(req, res, pool));
 
 // Serve static files from frontend dist
 app.use(express.static(path.join(__dirname, '../../frontend/dist')));
