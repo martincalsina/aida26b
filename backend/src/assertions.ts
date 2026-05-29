@@ -76,4 +76,20 @@ function assertValidPostInstance(tableName: string, res: express.Response, field
   return true;
 }
 
-export { assertValidDeleteInstance, assertValidPutInstance, assertValidPostInstance };
+function assertValidGetInstance(tableName: string, res: express.Response, pksValues: string[], entityName: string, pkFieldsNames: string[]){
+  if (!isValidTable(tableName)){
+      sendNotFoundMessage(res, `Invalid table`);
+      return false;
+    }  
+    if (incorrectAmountOfPKParameters(pksValues, tableName)){
+      sendInvalidInstanceMessage(res, `Insufficient amount of fields to identify a/an ${entityName}`);
+      return false;
+    }
+    if (invalidPKFieldNames(tableName as TableKey, pkFieldsNames)){
+      sendInvalidInstanceMessage(res, `Invalid fields to identify a/an ${entityName}`);
+      return false;
+    }
+    return true;
+}
+
+export { assertValidDeleteInstance, assertValidPutInstance, assertValidPostInstance, assertValidGetInstance };

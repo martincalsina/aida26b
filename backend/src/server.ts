@@ -3,9 +3,9 @@ import cors from 'cors';
 import { Pool } from 'pg';
 import dotenv from 'dotenv';
 import path from 'path';
-import { getStudentsHandler, getSubjectsHandler, getEnrollmentsHandler } from './routes/get';
-import { putHandler } from './routes/put';
-import { postHandler } from './routes/post';
+import { getHandler    } from './routes/get';
+import { putHandler    } from './routes/put';
+import { postHandler   } from './routes/post';
 import { deleteHandler } from './routes/delete';
 
 
@@ -29,20 +29,13 @@ const pool = new Pool({
 app.use(cors());
 app.use(express.json());
 
-// Student routes
-app.get('/api/students', async (req, res) => getStudentsHandler(req, res, pool));
+app.get('/api/:tableName', async (req, res) => getHandler(req, res, pool));
 
 app.post('/api/:tableName', async (req, res) => postHandler(req, res, pool));
 
 app.put('/api/:tableName', async (req, res) => putHandler(req, res, pool));
 
 app.delete('/api/:tableName', async (req, res) => deleteHandler(req, res, pool));
-
-// Subjects routes
-app.get('/api/subjects', async (req, res) => getSubjectsHandler(req, res, pool));
-
-// Enrollments routes
-app.get('/api/enrollments', async (req, res) => getEnrollmentsHandler(req, res, pool));
 
 // Serve static files from frontend dist
 app.use(express.static(path.join(__dirname, '../../frontend/dist')));

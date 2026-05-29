@@ -1,4 +1,4 @@
-import type { TableKey, Response, ColumnDef }  from '../../shared/src/types/types';
+import type { TableKey, Response, ColumnDef, TableStructure }  from '../../shared/src/types/types';
 import      { structure } from '../../shared/src/ssot/structure';
 import type { Pool }      from 'pg';
 
@@ -24,10 +24,18 @@ function columnNamesEqualsNumber(columnsNames: string[], from: number = 1, separ
   return res.slice(0, -separator.length);
 }
 
+function getDerivableFields(tableName: TableKey): [string, ColumnDef][]{
+  return Object.entries(structure.tables[tableName].columns).filter(([columnName, column]) => column.derivable);
+}
+
 function getNotDerivableFields(table: TableKey): string[]{
   const columns: [string, ColumnDef][] = Object.entries(structure.tables[table].columns as Record<string, ColumnDef>);
   const notDerivableEntries = columns.filter(([fieldName, columnDef]) => !columnDef.derivable);
   return notDerivableEntries.map(([fieldName, column]) => fieldName);
+}
+
+function getReferencedRelations(tableName: TableKey): TableKey[]{
+  return (structure.tables[tableName] as TableStructure).referencedTables as TableKey[];
 }
 
 function getRequiredFields(tableName: TableKey){
@@ -45,4 +53,4 @@ function formatTableColumnsForQuery(fieldsNames: string[], from: number = 1): st
   return [tupleContent, tupleWithReplaceParameters];
 }
 
-export { getEntityName, tryQuery, columnNamesEqualsNumber, getNotDerivableFields, getRequiredFields, formatTableColumnsForQuery };
+export { getEntityName, tryQuery, columnNamesEqualsNumber, getNotDerivableFields, getRequiredFields, formatTableColumnsForQuery, getReferencedRelations, getDerivableFields };

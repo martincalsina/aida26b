@@ -1,110 +1,87 @@
+import { getEntityName, getDerivableFields, getReferencedRelations, tryQuery, columnNamesEqualsNumber } from "../helpers";
+import { sendSuccessOperationMessage, sendNotFoundMessage, sendErrorMessage} from "../status_messages";
+import { TableKey, ColumnDef, TableStructure, Response} from "../../../shared/src/types/types";
+import { structure } from "../../../shared/src/ssot/structure";
+import { getPkFields } from "../../../shared/src/utils/utils";
+import { assertValidGetInstance } from "../assertions";
+import   express from 'express';
 import { Pool } from "pg";
-import express from 'express';
 
-async function fetchStudentsTable(req: express.Request, res: express.Response, pool: Pool)  {
-  try {
-    const result = await pool.query('SELECT * FROM students ORDER BY numero_libreta');
-    res.json(result.rows);
-  } catch (error) {
-    console.error('Error fetching students:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-};
-
-async function getStudentsHandler(req: express.Request, res: express.Response, pool: Pool) {
-  if (Object.values(req.query).length === 0){
-    fetchStudentsTable(req, res, pool);
-  }
-  else{
-    fetchStudent(req, res, pool);
-  }
+export async function getHandler(req: express.Request, res: express.Response, pool: Pool) {
+    const pksValues = Object.values(req.query).map(pkValue => String(pkValue));
+    const pkFields = Object.keys(req.query);
+    const tableName: string = req.params.tableName;
+    const entityName: string = getEntityName(tableName as TableKey);  
+    if (assertValidGetInstance(tableName, res, pksValues, entityName, pkFields)){
+      if (pksValues.length === 0) return getFullTable(pool, res, tableName as TableKey, entityName);
+    
+      return getRowOfTable(pool, res, tableName as TableKey, pksValues as string[], entityName); //Caso query con pks;
+    }       
 }
 
-async function fetchStudent(req: express.Request, res: express.Response, pool: Pool)  {
-  try {
-    const pksValues          = Object.values(req.query) as any[];
-    const result = await pool.query('SELECT * FROM students WHERE numero_libreta = $1', pksValues);
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Student not found' });
-    }
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error('Error fetching student:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-};
-
-async function fetchSubjectsTable(req: express.Request, res: express.Response, pool: Pool)  {
-  try {
-    const result = await pool.query('SELECT * FROM subjects ORDER BY cod_mat');
-    res.json(result.rows);
-  } catch (error) {
-    console.error('Error fetching subjects:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-};
-
-async function getSubjectsHandler(req: express.Request, res: express.Response, pool: Pool) {
-  if (Object.values(req.query).length === 0){
-    fetchSubjectsTable(req, res, pool);
-  }
-  else{
-    fetchSubject(req, res, pool);
-  }
+/**Helpers**/
+function getJoinsStatements(queryTable: TableKey, referencedRelations: TableKey[]): string{
+  let joinsStatement: string = "";
+  const entityName: string = structure.tables[queryTable].uiName;
+  referencedRelations.forEach(tableName => {
+    joinsStatement += ` JOIN ${tableName} ${structure.tables[tableName].uiName} ON `
+    const pkFields = getPkFields(tableName);
+    const pkFieldsEqualityStatements = pkFields.map(pk => `${entityName}.${pk}=${getEntityName(tableName)}.${pk}`);
+    joinsStatement += pkFieldsEqualityStatements.join(' AND ');
+  });
+  return joinsStatement;
 }
 
-
-async function fetchSubject (req: express.Request, res: express.Response, pool: Pool)  {
-  try {
-    const pksValues          = Object.values(req.query) as any[];
-    const result = await pool.query('SELECT * FROM subjects WHERE cod_mat = $1', pksValues);
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Subject not found' });
-    }
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error('Error fetching subject:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-};
-
-async function fetchEnrollmentsTable(req: express.Request, res: express.Response, pool: Pool)  {
-  try {
-    const result = await pool.query(`
-      SELECT e.*, s.first_name, s.last_name, sub.name as subject_name
-      FROM enrollments e
-      JOIN students s ON e.numero_libreta = s.numero_libreta
-      JOIN subjects sub ON e.cod_mat = sub.cod_mat
-      ORDER BY e.numero_libreta, e.cod_mat
-    `);
-    res.json(result.rows);
-  } catch (error) {
-    console.error('Error fetching enrollments:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-};
-
-async function getEnrollmentsHandler(req: express.Request, res: express.Response, pool: Pool) {
-  if (Object.values(req.query).length === 0){
-    fetchEnrollmentsTable(req, res, pool);
-  }
-  else{
-    fetchEnrollment(req, res, pool);
-  }
+function getOrderByPKsStatement(tableName: TableKey): string{
+  let orderByStatement: string = "ORDER BY ";
+  const entityName: string = structure.tables[tableName].uiName;
+  orderByStatement += getPkFields(tableName).map(pk => `${entityName}.${pk}`).join(',');
+  return orderByStatement;
 }
 
-async function fetchEnrollment(req: express.Request, res: express.Response, pool: Pool)  {
-  try {
-    const pksValues          = Object.values(req.query) as any[];
-    const result = await pool.query('SELECT * FROM enrollments WHERE numero_libreta = $1 AND cod_mat = $2', pksValues);
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Enrollment not found' });
-    }
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error('Error fetching enrollment:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-};
+function getSelectStatement(tableName: TableKey): string{
+  let selectStatement: string = `SELECT ${structure.tables[tableName].uiName}.*,`;
+  const derivedFields: [string, ColumnDef][] = getDerivableFields(tableName);
+  selectStatement += derivedFields.map(([fieldName, column]) => column.derivable?.sqlGenerationStatement.replace(/entityName/g, `${getEntityName(column.derivable.originTable as TableKey)}`) + ` AS ${fieldName}`).join(',');
+  return selectStatement;
+}
 
-export {getStudentsHandler, getSubjectsHandler, getEnrollmentsHandler};
+async function getFullTableOrderedByPKs(pool: Pool, tableName: TableKey){
+  const queryArguments = getPkFields(tableName as TableKey) ;
+  let queryStatement: string;
+  
+  if ((structure.tables[tableName] as TableStructure).referencedTables){
+    queryStatement = `${getSelectStatement(tableName)}
+    FROM ${tableName} ${getEntityName(tableName)} ${getJoinsStatements(tableName, getReferencedRelations(tableName))} 
+    ${getOrderByPKsStatement(tableName)}`;
+    return await tryQuery(pool, queryStatement);
+  }
+  queryStatement = `SELECT * FROM ${tableName} ORDER BY ${queryArguments.join(',')}`;
+  return await tryQuery(pool, queryStatement);
+}
+
+async function getRowByPKs(pool: Pool, tableName: TableKey, pks: string[]){
+    const whereArguments: string = columnNamesEqualsNumber(getPkFields(tableName), 1, ' AND ');
+    const queryArguments = pks;
+    let queryStatement = `SELECT * FROM ${tableName} WHERE ${whereArguments}`;
+    return tryQuery(pool, queryStatement, queryArguments);
+}
+
+async function getFullTable(pool: Pool, res: express.Response, tableName: TableKey, entityName: string){
+  const responseQuery: Response = await getFullTableOrderedByPKs(pool, tableName as TableKey);
+  if (!responseQuery.success){
+    return sendErrorMessage(res, responseQuery.message);
+  }
+  return sendSuccessOperationMessage(res, entityName+'s', responseQuery.data.rows, 'fetched', 200);
+}
+
+async function getRowOfTable(pool: Pool, res: express.Response, tableName: TableKey, pks: string[], entityName: string) {
+ const responseQuery: Response = await getRowByPKs(pool, tableName as TableKey, pks);
+  if (responseQuery.data.rowCount === 0){
+    return sendNotFoundMessage(res, entityName);
+  }
+  else if (!responseQuery.success){
+    return sendErrorMessage(res, responseQuery.message);
+  }
+  return sendSuccessOperationMessage(res, entityName, responseQuery.data.rows[0], 'fetched', 200);
+}

@@ -24,7 +24,7 @@ type ColumnDef = {
   editable?: boolean;
   readonlyOnEdit?: boolean;
   nullable?: boolean;
-  derivable?: boolean;
+  derivable?: {originTable: string, sqlGenerationStatement: string};
 }
 
 type TableStructure = {
@@ -33,6 +33,7 @@ type TableStructure = {
   uiName: string
   title?: string
   addButtonLabel?: string
+  referencedTables?: string[]
 }
 
 type InferType<FieldDefs extends Record<string, ColumnDef>> = {
