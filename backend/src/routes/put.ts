@@ -20,6 +20,6 @@ export async function putHandler(req: express.Request, res: express.Response, po
       
       if (result.data?.rowCount === 0) return sendNotFoundMessage(res, entityName + `not found`);
       else if (!result.success) return sendErrorMessage(res, result.message);
-      return sendSuccessOperationMessage(res, entityName, result.data.rows[0], 'updated', 200);
+      return sendSuccessOperationMessage(res, entityName, result.data.rows[0], 'updated', 202);
     }
 }
