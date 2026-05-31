@@ -153,8 +153,13 @@ const structure = {
       title: { es: 'Tema', en: 'Theme' },
       id: 'theme-picker',
       handler: (value: string) => {
-        document.body.setAttribute('data-theme', value);
-        localStorage.setItem('theme', value);
+        try {
+          if (!value) throw new Error('Theme value is required');
+          document.body.setAttribute('data-theme', value);
+          localStorage.setItem('theme', value);
+        } catch (err) {
+          console.error('Error changing theme:', err);
+        }
       },
       options: [
         { value: 'light', label: { es: 'Claro', en: 'Light' } },
@@ -166,15 +171,20 @@ const structure = {
       title: { es: 'Idioma', en: 'Language' },
       id: 'language-picker',
       handler: (value: string) => {
-        setLanguage(value as Language);
-        updateNavButtonsText();
-        showSection(activeTableKey);
-        if (menuContainer) {
-          menuContainer.innerHTML = '';
-          showMenu();
+        try {
+          if (!value || !isLanguage(value)) throw new Error('Invalid language value');
+          setLanguage(value as Language);
+          updateNavButtonsText();
+          showSection(activeTableKey);
+          if (menuContainer) {
+            menuContainer.innerHTML = '';
+            showMenu();
+          }
+          const appTitleEl = document.getElementById('app-title');
+          if (appTitleEl) appTitleEl.textContent = getLocalizedText(structure.commonText.appTitle);
+        } catch (err) {
+          console.error('Error changing language:', err);
         }
-        const appTitleEl = document.getElementById('app-title');
-        if (appTitleEl) appTitleEl.textContent = getLocalizedText(structure.commonText.appTitle);
       },
       options: [
         { value: 'es', label: { es: 'Español', en: 'Spanish' } },
