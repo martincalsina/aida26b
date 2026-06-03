@@ -6,10 +6,10 @@ export const structure = {
       columns:{
         numero_libreta   :{type: 'string', label: "Número de Libreta / Student ID:", readonlyOnEdit: true, validator: { required: true, pattern: '^\\d{1,4}/\\d{2}$', patternMessage: 'must match pattern NNNN/YY (1-4 digit number, slash, 2-digit year; leading zeros optional on the number)', normalize: { pattern: '^0+(?=\\d)', replacement: '' } }},
         dni              :{type: 'string', label: 'DNI / ID Number:', validator: { required: true, pattern: '^\\d{7,8}$', patternMessage: 'must be 7 or 8 digits' }},
-        first_name       :{type: 'string', label: 'Nombre / First Name:', validator: { required: true }},
-        last_name        :{type: 'string', label: 'Apellido / Last Name:', validator: { required: true }},
+        first_name       :{type: 'string', label: 'Nombre / First Name:', validator: { required: true, pattern: '^\\D+$', patternMessage: 'must not contain numbers' }},
+        last_name        :{type: 'string', label: 'Apellido / Last Name:', validator: { required: true, pattern: '^\\D+$', patternMessage: 'must not contain numbers' }},
         email            :{type: 'string', label: 'Email:', input: 'email', validator: { nullable: true, pattern: '^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$', patternMessage: 'must be a valid email address' }},
-        enrollment_date  :{type: 'string', label: 'Fecha de Inscripción / Enrollment Date:', input: 'date', validator: { nullable: true, maxDayOffset: 0 }},
+        enrollment_date  :{type: 'string', label: 'Fecha de Inscripción / Enrollment Date:', input: 'date', validator: { nullable: true, minDate: '1821-08-09', maxDayOffset: 0 }},
         status           :{type: 'string', label: 'Estado / Status:', input: 'select', validator: { nullable: true }, options: [
           { value: 'active', label: 'Activo / Active' },
           { value: 'graduated', label: 'Graduado / Graduated' },
@@ -42,7 +42,7 @@ export const structure = {
           student_name: { type: 'string', label: 'Nombre del Alumno / Student Name:', editable: false },
           cod_mat: { type: 'string', label: 'Código de Materia / Subject Code:', readonlyOnEdit: true, validator: { required: true } },
           subject_name: { type: 'string', label: 'Nombre de Materia / Subject Name:', editable: false },
-          enrollment_date: { type: 'string', label: 'Fecha de Inscripción / Enrollment Date:', input: 'date', validator: { required: true } },
+          enrollment_date: { type: 'string', label: 'Fecha de Inscripción / Enrollment Date:', input: 'date', validator: { required: true, minDate: '1821-08-09' } },
           grade: { type: 'number', label: 'Nota / Grade:', input: 'number', validator: { nullable: true, minValue: 0, maxValue: 10 } },
           status: { type: 'string', label: 'Estado / Status:', input: 'select', validator: { nullable: true }, options: [
             { value: 'enrolled', label: 'Inscrito / Enrolled' },
