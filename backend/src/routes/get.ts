@@ -1,7 +1,7 @@
 import { Pool } from "pg";
 import express from 'express';
-import { structure } from '@shared/ssot/structure';
-import { ColumnDef } from '@shared/types/types';
+import { structure } from '../../../shared/src/ssot/structure.js';
+import { ColumnDef } from '../../../shared/src/types/types.js';
 
 export function buildListQuery(
   tableNameOrCTE: string,
