@@ -19,6 +19,7 @@ type ColumnValidator = {
   maxValue?: number;        // number: maximum value
   minDayOffset?: number;    // date: earliest allowed day-offset from today (-30 = 30 days ago, 0 = not in the past)
   maxDayOffset?: number;    // date: latest allowed day-offset from today (0 = not in the future, 7 = up to 7 days ahead)
+  minDate?: string;         // date: earliest allowed calendar date, as ISO 'YYYY-MM-DD'
   integer?: boolean;        // number must be an integer
   pattern?: string;         // regex source the value must match
   patternMessage?: string;  // human-readable message when pattern fails

@@ -3,6 +3,7 @@
 import {structure} from '@shared/ssot/structure';
 import {TypeMap, MyTypeNames, ColumnDef, TableStructure, InferType, TableKey, TableRecordMap} from '@shared/types/types';
 import {getPkFields} from '@shared/utils/utils';
+import {validateField} from '@shared/validation/validate';
 import '../styles/style.css';
 
 const API_BASE = '/api';
@@ -197,6 +198,31 @@ function getFieldElementId(tableKey: TableKey, fieldName: string): string {
   return `${tableKey}-${fieldName}`;
 }
 
+// Turn an <input>'s raw string into the typed value the validator/API expect (empty number -> null).
+function coerceFieldValue(column: ColumnDef, rawValue: string): unknown {
+  if (column.type === 'number') return rawValue === '' ? null : Number(rawValue);
+  return rawValue;
+}
+
+// Validate one field against the shared SSOT rules and show/clear its inline message. Returns the error, if any.
+function showFieldValidation(tableKey: TableKey, fieldName: string, column: ColumnDef): string | undefined {
+  const id = getFieldElementId(tableKey, fieldName);
+  const element = document.getElementById(id) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null;
+  const errorEl = document.getElementById(`${id}-error`);
+  const message = validateField(tableKey, fieldName, coerceFieldValue(column, element?.value ?? ''));
+  if (errorEl) errorEl.textContent = message ?? '';
+  element?.classList.toggle('invalid', !!message);
+  return message;
+}
+
+// Validate every editable field, showing all messages; returns true when the form is clean.
+function validateForm<K extends TableKey>(tableKey: K): boolean {
+  return Object.entries(structure.tables[tableKey].columns)
+    .filter(([, column]) => column.editable !== false)
+    .map(([fieldName, column]) => showFieldValidation(tableKey, fieldName, column as ColumnDef))
+    .every((message) => !message);
+}
+
 
 function renderFormField<K extends TableKey>(tableKey: K, fieldName: keyof TableRecordMap[K] & string, column: ColumnDef, record?: Partial<TableRecordMap[K]>, isEdit = false): HTMLElement {
   const id = getFieldElementId(tableKey, fieldName);
@@ -212,6 +238,16 @@ function renderFormField<K extends TableKey>(tableKey: K, fieldName: keyof Table
   const renderer = getRenderer<K>(rendererKey);
   const inputEl = renderer({ id, fieldName, column, record, isEdit });
   wrapper.appendChild(inputEl);
+
+  const errorEl = document.createElement('small');
+  errorEl.className = 'field-error';
+  errorEl.id = `${id}-error`;
+  wrapper.appendChild(errorEl);
+
+  // Validate on blur, then keep the message live once the field has been flagged.
+  inputEl.addEventListener('blur', () => showFieldValidation(tableKey, fieldName, column));
+  inputEl.addEventListener('input', () => { if (errorEl.textContent) showFieldValidation(tableKey, fieldName, column); });
+
   return wrapper;
 }
 
@@ -224,17 +260,9 @@ function collectFormData<K extends TableKey>(tableKey: K): Partial<TableRecordMa
     .forEach(([fieldName, column]) => {
       const id = getFieldElementId(tableKey, fieldName);
       const element = document.getElementById(id) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null;
-      const rawValue = element?.value ?? '';
-
-      if (column.type === 'number') {
-        // Empty -> null (not 0), so the server can tell "cleared" from a real value.
-        payload[fieldName as keyof TableRecordMap[K]] = (rawValue === ''
-          ? null
-          : Number(rawValue)) as TableRecordMap[K][keyof TableRecordMap[K]];
-        return;
-      }
-
-      payload[fieldName as keyof TableRecordMap[K]] = rawValue as TableRecordMap[K][keyof TableRecordMap[K]];
+      // Empty number -> null (not 0), so the server can tell "cleared" from a real value.
+      payload[fieldName as keyof TableRecordMap[K]] =
+        coerceFieldValue(column, element?.value ?? '') as TableRecordMap[K][keyof TableRecordMap[K]];
     });
 
   return payload;
@@ -286,6 +314,7 @@ async function showAnyForm<K extends TableKey>(tableKey: K, record?: Partial<Tab
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (!validateForm(tableKey)) return; // inline messages already shown; let the user fix them
     const payload = collectFormData(tableKey);
 
     const pkAndTheirValues = getPkFields(tableKey).map((pkFieldName) => [pkFieldName, String((payload as Record<string, unknown>)[pkFieldName])?? String((record as Record<string, unknown> | undefined)?.[pkFieldName]) ?? '']);
