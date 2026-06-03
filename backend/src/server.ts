@@ -36,99 +36,6 @@ app.put('/api/students', async (req, res) => updateStudent(req, res, pool));
 
 app.delete('/api/students', async (req, res) => deleteStudent(req, res, pool));
 
-// Departments routes
-app.get('/api/departments', async (req, res) => {
-  try {
-    const result = await pool.query(
-      'SELECT * FROM departments ORDER BY cod_dep'
-    );
-
-    res.json(result.rows);
-  } catch (error) {
-    console.error('Error fetching departments:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-app.get('/api/departments/:cod_dep', async (req, res) => {
-  try {
-    const { cod_dep } = req.params;
-
-    const result = await pool.query(
-      'SELECT * FROM departments WHERE cod_dep = $1',
-      [cod_dep]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Department not found' });
-    }
-
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error('Error fetching departments:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-app.post('/api/departments', async (req, res) => {
-  try {
-    const { cod_dep, name } = req.body;
-    const result = await pool.query(
-      'INSERT INTO departments (cod_dep, name) VALUES ($1, $2) RETURNING *',
-      [cod_dep, name]
-    );
-    res.status(201).json(result.rows[0]);
-  } catch (error) {
-    console.error('Error creating department:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-app.put('/api/departments/:cod_dep', async (req, res) => {
-  try {
-    const { cod_dep } = req.params;
-    const { name } = req.body;
-
-    const result = await pool.query(
-      `UPDATE departments
-       SET name = $1
-       WHERE cod_dep = $2
-       RETURNING *`,
-      [name, cod_dep]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Department not found' });
-    }
-
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error('Error updating departments:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-app.delete('/api/departments/:cod_dep', async (req, res) => {
-  try {
-    const { cod_dep } = req.params;
-
-    const result = await pool.query(
-      'DELETE FROM departments WHERE cod_dep = $1 RETURNING *',
-      [cod_dep]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Department not found' });
-    }
-
-    res.json({ message: 'Department deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting departments:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-
 // Subjects routes
 /*
 app.get('/api/subjects', async (req, res) => {
@@ -259,7 +166,6 @@ app.post('/api/subjects', async (req, res) => insertSubject(req, res, pool));
 app.put('/api/subjects', async (req, res) => updateSubject(req, res, pool));
 
 app.delete('/api/subjects', async (req, res) => deleteSubject(req, res, pool));
-
 
 // Enrollments routes
 app.get('/api/enrollments', async (req, res) => getEnrollmentsHandler(req, res, pool));

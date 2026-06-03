@@ -77,4 +77,29 @@ async function updateEnrollment(req: express.Request, res: express.Response, poo
   }
 };
 
-export {updateStudent, updateSubject, updateEnrollment};
+async function updateDepartment(req: express.Request, res: express.Response, pool: Pool)  {
+  try {
+    const { cod_dep } = req.params;
+    const { name } = req.body;
+
+    const result = await pool.query(
+      `UPDATE departments
+       SET name = $1
+       WHERE cod_dep = $2
+       RETURNING *`,
+      [name, cod_dep]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Department not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error updating departments:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+
+}
+
+export {updateStudent, updateSubject, updateEnrollment, updateDepartment};

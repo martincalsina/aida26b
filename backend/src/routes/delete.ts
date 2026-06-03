@@ -60,4 +60,24 @@ async function deleteEnrollment(req: express.Request, res: express.Response, poo
   }
 };
 
-export {deleteStudent, deleteSubject, deleteEnrollment};
+async function deleteDepartment(req: express.Request, res: express.Response, pool: Pool) {
+  try {
+    const { cod_dep } = req.params;
+
+    const result = await pool.query(
+      'DELETE FROM departments WHERE cod_dep = $1 RETURNING *',
+      [cod_dep]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Department not found' });
+    }
+
+    res.json({ message: 'Department deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting departments:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+export {deleteStudent, deleteSubject, deleteEnrollment, deleteDepartment};

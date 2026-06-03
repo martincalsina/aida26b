@@ -36,6 +36,7 @@ async function fetchStudent(req: express.Request, res: express.Response, pool: P
 
 async function fetchSubjectsTable(req: express.Request, res: express.Response, pool: Pool)  {
   /*try {
+  try {
     const result = await pool.query('SELECT * FROM subjects ORDER BY cod_mat');
     res.json(result.rows);
   } catch (error) {
@@ -69,7 +70,6 @@ async function fetchSubjectsTable(req: express.Request, res: express.Response, p
     console.error('Error fetching subjects:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
-
 };
 
 async function getSubjectsHandler(req: express.Request, res: express.Response, pool: Pool) {
@@ -113,7 +113,6 @@ async function fetchSubject (req: express.Request, res: express.Response, pool: 
     console.error('Error fetching subject:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
-
 };
 
 async function fetchEnrollmentsTable(req: express.Request, res: express.Response, pool: Pool)  {
@@ -155,4 +154,45 @@ async function fetchEnrollment(req: express.Request, res: express.Response, pool
   }
 };
 
-export {getStudentsHandler, getSubjectsHandler, getEnrollmentsHandler};
+async function fetchDepartmentTable(req: express.Request, res: express.Response, pool: Pool)  {
+  try {
+    const result = await pool.query(
+      'SELECT * FROM departments ORDER BY cod_dep'
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching departments:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+async function fetchDeparment(req: express.Request, res: express.Response, pool: Pool)  {
+  try {
+    const { cod_dep } = req.params;
+
+    const result = await pool.query(
+      'SELECT * FROM departments WHERE cod_dep = $1',
+      [cod_dep]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Department not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error fetching departments:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+async function getDepartmentsHandler(req: express.Request, res: express.Response, pool: Pool) {
+  if (Object.values(req.query).length === 0){
+    fetchDepartmentTable(req, res, pool);
+  }
+  else{
+    fetchDeparment(req, res, pool);
+  }
+}
+
+export {getStudentsHandler, getSubjectsHandler, getEnrollmentsHandler, getDepartmentsHandler};

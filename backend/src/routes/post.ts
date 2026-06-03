@@ -17,6 +17,7 @@ async function insertStudent(req: express.Request, res: express.Response, pool: 
 
 async function insertSubject(req: express.Request, res: express.Response, pool: Pool) {
   /*try {
+  try {
     const { cod_mat, name, description, credits, department } = req.body;
     const result = await pool.query(
       'INSERT INTO subjects (cod_mat, name, description, credits, department) VALUES ($1, $2, $3, $4, $5) RETURNING *',
@@ -59,4 +60,18 @@ async function insertEnrollment(req: express.Request, res: express.Response, poo
   }
 };
 
-export {insertStudent, insertSubject, insertEnrollment};
+async function insertDepartment(req: express.Request, res: express.Response, pool: Pool) {
+    try {
+    const { cod_dep, name } = req.body;
+    const result = await pool.query(
+      'INSERT INTO departments (cod_dep, name) VALUES ($1, $2) RETURNING *',
+      [cod_dep, name]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Error creating department:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+export {insertStudent, insertSubject, insertEnrollment, insertDepartment};
