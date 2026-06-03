@@ -1,14 +1,12 @@
 import { Pool } from "pg";
 import express from 'express';
-
-type FilterConfig = {
-  type: 'string' | 'number' | 'enum';
-};
+import { structure } from '@shared/ssot/structure';
+import { ColumnDef } from '@shared/types/types';
 
 export function buildListQuery(
   tableNameOrCTE: string,
   query: any,
-  filterConfig: Record<string, FilterConfig>,
+  filterConfig: Record<string, ColumnDef>,
   defaultSort: string
 ) {
   const conditions: string[] = [];
@@ -31,11 +29,11 @@ export function buildListQuery(
       const negated = strVal.startsWith('!');
       const actualVal = negated ? strVal.slice(1) : strVal;
 
-      if (config.type === 'string') {
+      if (config.type === 'string' && !config.options) {
         conditions.push(`"${fieldName}"::text ${negated ? 'NOT ' : ''}ILIKE $${paramIndex}`);
         values.push(`%${actualVal}%`);
         paramIndex++;
-      } else if (config.type === 'enum') {
+      } else if (config.options) {
         conditions.push(`"${fieldName}" ${negated ? '!=' : '='} $${paramIndex}`);
         values.push(actualVal);
         paramIndex++;
@@ -96,37 +94,10 @@ export function buildListQuery(
   return { dataQuery, dataValues, countQuery, countValues: values };
 }
 
-export const studentFilters: Record<string, FilterConfig> = {
-  numero_libreta: { type: 'string' },
-  dni: { type: 'string' },
-  first_name: { type: 'string' },
-  last_name: { type: 'string' },
-  email: { type: 'string' },
-  enrollment_date: { type: 'string' },
-  status: { type: 'enum' },
-};
-
-export const subjectFilters: Record<string, FilterConfig> = {
-  cod_mat: { type: 'string' },
-  name: { type: 'string' },
-  description: { type: 'string' },
-  credits: { type: 'number' },
-  department: { type: 'string' },
-};
-
-export const enrollmentFilters: Record<string, FilterConfig> = {
-  numero_libreta: { type: 'string' },
-  student_name: { type: 'string' },
-  cod_mat: { type: 'string' },
-  subject_name: { type: 'string' },
-  enrollment_date: { type: 'string' },
-  grade: { type: 'number' },
-  status: { type: 'enum' },
-};
 
 async function fetchStudentsTable(req: express.Request, res: express.Response, pool: Pool) {
   try {
-    const { dataQuery, dataValues, countQuery, countValues } = buildListQuery('students', req.query, studentFilters, 'numero_libreta');
+    const { dataQuery, dataValues, countQuery, countValues } = buildListQuery('students', req.query, structure.tables.students.columns, 'numero_libreta');
     const [dataResult, countResult] = await Promise.all([
       pool.query(dataQuery, dataValues),
       pool.query(countQuery, countValues)
@@ -163,7 +134,7 @@ async function fetchStudent(req: express.Request, res: express.Response, pool: P
 
 async function fetchSubjectsTable(req: express.Request, res: express.Response, pool: Pool) {
   try {
-    const { dataQuery, dataValues, countQuery, countValues } = buildListQuery('subjects', req.query, subjectFilters, 'cod_mat');
+    const { dataQuery, dataValues, countQuery, countValues } = buildListQuery('subjects', req.query, structure.tables.subjects.columns, 'cod_mat');
     const [dataResult, countResult] = await Promise.all([
       pool.query(dataQuery, dataValues),
       pool.query(countQuery, countValues)
@@ -206,7 +177,7 @@ async function fetchEnrollmentsTable(req: express.Request, res: express.Response
       JOIN students s ON e.numero_libreta = s.numero_libreta
       JOIN subjects sub ON e.cod_mat = sub.cod_mat
     `;
-    const { dataQuery, dataValues, countQuery, countValues } = buildListQuery(baseQuery, req.query, enrollmentFilters, 'numero_libreta');
+    const { dataQuery, dataValues, countQuery, countValues } = buildListQuery(baseQuery, req.query, structure.tables.enrollments.columns as Record<string, ColumnDef>, 'numero_libreta');
     const [dataResult, countResult] = await Promise.all([
       pool.query(dataQuery, dataValues),
       pool.query(countQuery, countValues)
