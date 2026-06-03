@@ -20,6 +20,13 @@ type RendererProps<K extends TableKey> = {
 };
 type RendererFunc = <K extends TableKey>(props: RendererProps<K>) => HTMLElement;
 
+// The API returns dates as ISO timestamps, but <input type="date"> needs 'YYYY-MM-DD' or it blanks.
+function toInputValue(column: ColumnDef, raw: unknown): string {
+  if (raw == null) return '';
+  if (column.input === 'date') return String(raw).slice(0, 10);
+  return String(raw);
+}
+
 const renderers: Record<'input'|'textarea'|'select', RendererFunc> = {
   input<K extends TableKey>({ id, fieldName, column, record, isEdit }: RendererProps<K>) {
     const inp = document.createElement('input');
@@ -27,7 +34,7 @@ const renderers: Record<'input'|'textarea'|'select', RendererFunc> = {
     inp.type = column.input ?? (column.type === 'number' ? 'number' : 'text');
     if (column.required) inp.required = true;
     if (isEdit && column.readonlyOnEdit) inp.readOnly = true;
-    (inp as HTMLInputElement).value = String(record?.[fieldName] ?? '');
+    (inp as HTMLInputElement).value = toInputValue(column, record?.[fieldName]);
     return inp;
   },
   textarea<K extends TableKey>({ id, fieldName, column, record }: RendererProps<K>) {
@@ -220,11 +227,10 @@ function collectFormData<K extends TableKey>(tableKey: K): Partial<TableRecordMa
       const rawValue = element?.value ?? '';
 
       if (column.type === 'number') {
-        if (rawValue === '') {
-          payload[fieldName as keyof TableRecordMap[K]] = (column.nullable ? null : 0) as TableRecordMap[K][keyof TableRecordMap[K]];
-        } else {
-          payload[fieldName as keyof TableRecordMap[K]] = Number(rawValue) as TableRecordMap[K][keyof TableRecordMap[K]];
-        }
+        // Empty -> null (not 0), so the server can tell "cleared" from a real value.
+        payload[fieldName as keyof TableRecordMap[K]] = (rawValue === ''
+          ? null
+          : Number(rawValue)) as TableRecordMap[K][keyof TableRecordMap[K]];
         return;
       }
 

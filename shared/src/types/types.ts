@@ -18,6 +18,12 @@ type ColumnDef = {
   editable?: boolean;
   readonlyOnEdit?: boolean;
   nullable?: boolean;
+  min?: number;            // string: min length; number: min value; date: earliest day-offset from today (e.g. -30 = 30 days ago, 0 = not in the past)
+  max?: number;            // string: max length; number: max value; date: latest day-offset from today (e.g. 0 = not in the future, 7 = up to 7 days ahead)
+  integer?: boolean;       // number must be an integer
+  pattern?: string;        // regex source the value must match
+  patternMessage?: string; // human-readable message when pattern fails
+  normalize?: { pattern: string; replacement: string }; // regex find/replace applied to canonicalize the stored value
 }
 
 type TableStructure = {

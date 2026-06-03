@@ -4,13 +4,13 @@ export const structure = {
   tables: {
     students: {
       columns:{
-        numero_libreta   :{type: 'string', label: "Número de Libreta / Student ID:", required: true, readonlyOnEdit: true},
-        dni              :{type: 'string', label: 'DNI / ID Number:', required: true},
-        first_name       :{type: 'string', label: 'Nombre / First Name:', required: true},
-        last_name        :{type: 'string', label: 'Apellido / Last Name:', required: true},
-        email            :{type: 'string', label: 'Email:', input: 'email'},
-        enrollment_date  :{type: 'string', label: 'Fecha de Inscripción / Enrollment Date:', input: 'date'},
-        status           :{type: 'string', label: 'Estado / Status:', input: 'select', options: [
+        numero_libreta   :{type: 'string', label: "Número de Libreta / Student ID:", required: true, readonlyOnEdit: true, pattern: '^\\d{1,4}/\\d{2}$', patternMessage: 'must match pattern NNNN/YY (1-4 digit number, slash, 2-digit year; leading zeros optional on the number)', normalize: { pattern: '^0+(?=\\d)', replacement: '' }},
+        dni              :{type: 'string', label: 'DNI / ID Number:', required: true, pattern: '^\\d{7,8}$', patternMessage: 'must be 7 or 8 digits'},
+        first_name       :{type: 'string', label: 'Nombre / First Name:', required: true, min: 2},
+        last_name        :{type: 'string', label: 'Apellido / Last Name:', required: true, min: 2},
+        email            :{type: 'string', label: 'Email:', input: 'email', nullable: true, pattern: '^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$', patternMessage: 'must be a valid email address'},
+        enrollment_date  :{type: 'string', label: 'Fecha de Inscripción / Enrollment Date:', input: 'date', nullable: true, max: 0},
+        status           :{type: 'string', label: 'Estado / Status:', input: 'select', nullable: true, options: [
           { value: 'active', label: 'Activo / Active' },
           { value: 'graduated', label: 'Graduado / Graduated' },
           { value: 'interrupted', label: 'Interrumpido / Interrupted' },
@@ -25,9 +25,9 @@ export const structure = {
       columns:{
         cod_mat     :{type: 'string', label: 'Código / Code:', required: true, readonlyOnEdit: true},
         name        :{type: 'string', label: 'Nombre / Name:', required: true},
-        description :{type: 'string', label: 'Descripción / Description:', input: 'textarea'},
-        credits     :{type: 'number', label: 'Créditos / Credits:', input: 'number', nullable: false},
-        department  :{type: 'string', label: 'Departamento / Department:'},
+        description :{type: 'string', label: 'Descripción / Description:', input: 'textarea', nullable: true},
+        credits     :{type: 'number', label: 'Créditos / Credits:', input: 'number', nullable: true, integer: true, min: 1},
+        department  :{type: 'string', label: 'Departamento / Department:', nullable: true},
       },
       pk: 'cod_mat',
       uiName: 'Subject',
@@ -38,13 +38,13 @@ export const structure = {
         pk: ['numero_libreta', 'cod_mat'],
         uiName: 'Enrollment',
         columns: {
-          numero_libreta: { type: 'string', label: 'Número de Libreta / Student ID:', required: true, readonlyOnEdit: true },
+          numero_libreta: { type: 'string', label: 'Número de Libreta / Student ID:', required: true, readonlyOnEdit: true, pattern: '^\\d{1,4}/\\d{2}$', patternMessage: 'must match pattern NNNN/YY (1-4 digit number, slash, 2-digit year; leading zeros optional on the number)', normalize: { pattern: '^0+(?=\\d)', replacement: '' } },
           student_name: { type: 'string', label: 'Nombre del Alumno / Student Name:', editable: false },
           cod_mat: { type: 'string', label: 'Código de Materia / Subject Code:', required: true, readonlyOnEdit: true },
           subject_name: { type: 'string', label: 'Nombre de Materia / Subject Name:', editable: false },
           enrollment_date: { type: 'string', label: 'Fecha de Inscripción / Enrollment Date:', input: 'date', required: true },
-          grade: { type: 'number', label: 'Nota / Grade:', input: 'number', nullable: true },
-          status: { type: 'string', label: 'Estado / Status:', input: 'select', options: [
+          grade: { type: 'number', label: 'Nota / Grade:', input: 'number', nullable: true, min: 0, max: 10 },
+          status: { type: 'string', label: 'Estado / Status:', input: 'select', nullable: true, options: [
             { value: 'enrolled', label: 'Inscrito / Enrolled' },
             { value: 'completed', label: 'Completado / Completed' },
             { value: 'failed', label: 'Fallido / Failed' },
