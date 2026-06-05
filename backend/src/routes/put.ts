@@ -1,56 +1,117 @@
-import { Pool } from "pg";
 import express from 'express';
+import { Pool } from 'pg';
 
-async function updateStudent(req: express.Request, res: express.Response, pool: Pool)  {
-  try {
-    const pksValues          = Object.values(req.query) as any[];
-    const { dni, first_name, last_name, email, enrollment_date, status } = req.body;
-    const result = await pool.query(
-      'UPDATE students SET dni = $1, first_name = $2, last_name = $3, email = $4, enrollment_date = $5, status = $6 WHERE numero_libreta = $7 RETURNING *',
-      [dni, first_name, last_name, email, enrollment_date, status].concat(pksValues));
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Student not found' });
-    }
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error('Error updating student:', error);
-    res.status(500).json({ error: 'Internal server error' });
+import { structure } from '../../../shared/src/ssot/structure';
+import type { TableKey, Response } from '../../../shared/src/types/types';
+import { getPkFields } from '../../../shared/src/utils/utils';
+
+import {
+  getEntityName,
+  getNotDerivableFields,
+  tryQuery,
+  columnNamesEqualsNumber,
+} from '../helpers';
+
+import {
+  sendSuccessOperationMessage,
+  sendNotFoundMessage,
+  sendErrorMessage,
+} from '../status_messages';
+
+import {
+  validateFullObject,
+  validateOnlyPk,
+  sendErrorsIfInvalid,
+} from '../validation/validate';
+
+export async function putHandler(
+  req: express.Request,
+  res: express.Response,
+  pool: Pool
+) {
+  const tableNameParam = req.params.tableName;
+
+  if (!isKnownTable(tableNameParam)) {
+    return sendNotFoundMessage(res, tableNameParam);
   }
-};
 
-async function updateSubject(req: express.Request, res: express.Response, pool: Pool)  {
-  try {
-    const pksValues          = Object.values(req.query) as any[];
-    const { cod_mat } = req.params;
-    const { name, description, credits, department } = req.body;
-    const result = await pool.query(
-      'UPDATE subjects SET name = $1, description = $2, credits = $3, department = $4 WHERE cod_mat = $5 RETURNING *',
-      [name, description, credits, department].concat(pksValues));
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Subject not found' });
-    }
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error('Error updating subject:', error);
-    res.status(500).json({ error: 'Internal server error' });
+  const tableName = tableNameParam as TableKey;
+  const entityName = getEntityName(tableName);
+
+  const validatedBody = validateFullObject(tableName, req.body);
+
+  if (sendErrorsIfInvalid(res, validatedBody)) {
+    return;
   }
-};
 
-async function updateEnrollment(req: express.Request, res: express.Response, pool: Pool)  {
-  try {
-    const pksValues          = Object.values(req.query) as any[];
-    const { enrollment_date, grade, status } = req.body;
-    const result = await pool.query(
-      'UPDATE enrollments SET enrollment_date = $1, grade = $2, status = $3 WHERE numero_libreta = $4 AND cod_mat = $5 RETURNING *',
-      [enrollment_date, grade, status].concat(pksValues));
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Enrollment not found' });
-    }
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error('Error updating enrollment:', error);
-    res.status(500).json({ error: 'Internal server error' });
+  const validatedPk = validateOnlyPk(tableName, req.query);
+
+  if (sendErrorsIfInvalid(res, validatedPk)) {
+    return;
   }
-};
 
-export {updateStudent, updateSubject, updateEnrollment};
+  const pkFields = getPkFields(tableName);
+
+  const pkValues = pkFields.map(
+    (pkField) => (validatedPk.data as Record<string, unknown>)[pkField]
+  );
+
+  const fieldsToUpdate = getNotDerivableFields(tableName).filter(
+    (fieldName) => !pkFields.includes(fieldName)
+  );
+
+  if (fieldsToUpdate.length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: `No editable fields found for ${entityName}`,
+    });
+  }
+
+  const newValues = fieldsToUpdate.map(
+    (fieldName) => (validatedBody.data as Record<string, unknown>)[fieldName]
+  );
+
+  const setArgumentsString = columnNamesEqualsNumber(
+    fieldsToUpdate,
+    1,
+    ', '
+  );
+
+  const whereArgumentsString = columnNamesEqualsNumber(
+    pkFields,
+    fieldsToUpdate.length + 1,
+    ' AND '
+  );
+
+  const query = `
+    UPDATE ${tableName}
+    SET ${setArgumentsString}
+    WHERE ${whereArgumentsString}
+    RETURNING *
+  `;
+
+  const result: Response = await tryQuery(pool, query, [
+    ...newValues,
+    ...pkValues,
+  ]);
+
+  if (!result.success) {
+    return sendErrorMessage(res, result.message);
+  }
+
+  if (result.data?.rowCount === 0) {
+    return sendNotFoundMessage(res, entityName);
+  }
+
+  return sendSuccessOperationMessage(
+    res,
+    entityName,
+    result.data.rows[0],
+    'updated',
+    202
+  );
+}
+
+function isKnownTable(tableName: string): tableName is TableKey {
+  return Object.prototype.hasOwnProperty.call(structure.tables, tableName);
+}
