@@ -246,6 +246,41 @@ select:focus {
     margin-top: 20px;
 }
 
+.auth-section {
+    max-width: 360px;
+    margin: 0 auto;
+}
+
+.top-bar,
+.toolbar,
+.admin-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+#admin-actions[hidden] {
+    display: none;
+}
+
+.top-bar {
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+
+.toolbar {
+    flex-wrap: wrap;
+}
+
+.logout-btn {
+    background-color: var(--secondary);
+    color: white;
+}
+
+.message {
+    margin-bottom: 12px;
+    color: var(--danger);
+}
 /* Error messages dialog */
 .dialogErrorMessage{
     background-color: #dc3546;

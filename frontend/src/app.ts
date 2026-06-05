@@ -20,6 +20,17 @@ import '../styles/style.css';
 const API_BASE = '/api';
 const PAGE_SIZE = 20;
 
+type Role = 'admin' | 'editor' | 'reader';
+
+type AuthUser = {
+  id: number;
+  username: string;
+  email: string | null;
+  role: Role;
+  is_active: boolean;
+  must_change_password: boolean;
+};
+
 // -----------------------------------------------------------------------------
 // Localization
 // -----------------------------------------------------------------------------
@@ -51,8 +62,26 @@ export function getLocalizedText(text?: LocalizedText | string): string {
 // DOM elements
 // -----------------------------------------------------------------------------
 
+const authSection = document.getElementById('auth-section') as HTMLElement;
+const passwordSection = document.getElementById('password-section') as HTMLElement;
+const appShell = document.getElementById('app-shell') as HTMLElement;
+
+const loginForm = document.getElementById('login-form') as HTMLFormElement;
+const loginError = document.getElementById('login-error') as HTMLElement;
+
+const passwordForm = document.getElementById('password-form') as HTMLFormElement;
+const passwordError = document.getElementById('password-error') as HTMLElement;
+
+const currentUserEl = document.getElementById('current-user') as HTMLElement;
+const logoutBtn = document.getElementById('logout-btn') as HTMLButtonElement;
+const statusMessage = document.getElementById('status-message') as HTMLElement;
+
 const viewTitle = document.getElementById('view-title') as HTMLElement;
 const addRecordBtn = document.getElementById('add-record-btn') as HTMLButtonElement;
+const adminActions = document.getElementById('admin-actions') as HTMLElement;
+const addTeacherBtn = document.getElementById('add-teacher-btn') as HTMLButtonElement;
+const addAdminBtn = document.getElementById('add-admin-btn') as HTMLButtonElement;
+
 const formContainer = document.getElementById('record-form') as HTMLElement;
 const sharedTable = document.getElementById('records-table') as HTMLTableElement;
 const navContainer = document.getElementById('table-nav') as HTMLElement | null;
@@ -63,6 +92,97 @@ if (!menuContainer) throw new Error('Missing #menu-nav element in DOM');
 
 const tableKeys = Object.keys(structure.tables) as TableKey[];
 const menuKeys = Object.keys(structure.menu) as Array<keyof typeof structure.menu>;
+const tableNavButtons = {} as Record<TableKey, HTMLButtonElement>;
+
+// -----------------------------------------------------------------------------
+// Auth/session state
+// -----------------------------------------------------------------------------
+
+let currentUser: AuthUser | null = null;
+
+function canWriteAcademic(): boolean {
+  return currentUser?.role === 'admin' || currentUser?.role === 'editor';
+}
+
+function setMessage(message = ''): void {
+  statusMessage.textContent = message;
+  statusMessage.hidden = !message;
+}
+
+function showLogin(message = ''): void {
+  currentUser = null;
+
+  authSection.style.display = 'block';
+  passwordSection.style.display = 'none';
+  appShell.style.display = 'none';
+
+  loginError.textContent = message;
+  loginError.hidden = !message;
+}
+
+function showPasswordChange(user: AuthUser): void {
+  currentUser = user;
+
+  authSection.style.display = 'none';
+  passwordSection.style.display = 'block';
+  appShell.style.display = 'none';
+
+  passwordError.hidden = true;
+}
+
+function showApp(user: AuthUser): void {
+  if (user.must_change_password) {
+    showPasswordChange(user);
+    return;
+  }
+
+  currentUser = user;
+
+  authSection.style.display = 'none';
+  passwordSection.style.display = 'none';
+  appShell.style.display = 'block';
+
+  currentUserEl.textContent = `${user.username} (${user.role})`;
+
+  showSection(activeTableKey, false);
+}
+
+async function apiFetch(path: string, options: RequestInit = {}): Promise<globalThis.Response> {
+  const headers = options.body
+    ? {
+        'Content-Type': 'application/json',
+        ...(options.headers as Record<string, string> | undefined),
+      }
+    : options.headers;
+
+  const response = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers,
+    credentials: 'same-origin',
+  });
+
+  if (response.status === 401) {
+    showLogin('La sesión expiró / Session expired');
+    throw new Error('Authentication required');
+  }
+
+  if (response.status === 403) {
+    const data = await response
+      .clone()
+      .json()
+      .catch(() => ({} as { error?: string }));
+
+    const message =
+      data.error === 'Password change required'
+        ? 'Hay que cambiar la contraseña / Password change required'
+        : 'No tenés permiso para esa acción / You do not have permission for that action';
+
+    setMessage(message);
+    throw new Error(data.error || 'Forbidden');
+  }
+
+  return response;
+}
 
 // -----------------------------------------------------------------------------
 // UI feedback
@@ -163,8 +283,8 @@ function getRowsFromApiResult(result: unknown): unknown[] {
   return [];
 }
 
-async function fetchRows(url: string): Promise<unknown[]> {
-  const response = await fetch(url);
+async function fetchRows(path: string): Promise<unknown[]> {
+  const response = await apiFetch(path);
 
   if (!response.ok) {
     throw new Error(await errorMessage(response));
@@ -273,8 +393,6 @@ function mapInputToRenderer(input?: ColumnDef['input']): RendererKey {
 // -----------------------------------------------------------------------------
 // Navigation and state
 // -----------------------------------------------------------------------------
-
-const tableNavButtons = {} as Record<TableKey, HTMLButtonElement>;
 
 let activeTableKey: TableKey = tableKeys[0];
 
@@ -385,12 +503,16 @@ function updateNavButtonsText(): void {
     const config = structure.tables[key];
     const button = tableNavButtons[key];
 
+    if (!button) return;
+
     button.textContent =
       getLocalizedText(config.title) || getLocalizedText(config.uiName) || key;
   });
 }
 
 function createTableNavButtons(): void {
+  navContainer.innerHTML = '';
+
   for (const key of tableKeys) {
     const config = structure.tables[key];
     const button = document.createElement('button');
@@ -431,6 +553,7 @@ function showSection(section: TableKey, pushState = true): void {
   }
 
   activeTableKey = section;
+  setMessage();
 
   if (pushState) {
     syncStateToUrl();
@@ -443,9 +566,16 @@ function showSection(section: TableKey, pushState = true): void {
   const tableConfig = structure.tables[section];
 
   viewTitle.textContent = getLocalizedText(tableConfig.title);
+
   addRecordBtn.textContent =
     getLocalizedText(tableConfig.addButtonLabel) ||
     `${getLocalizedText(structure.commonText.add)} ${getLocalizedText(tableConfig.uiName)}`;
+
+  addRecordBtn.style.display = canWriteAcademic() ? 'inline-block' : 'none';
+
+  if (adminActions) {
+    adminActions.hidden = currentUser?.role !== 'admin' || section !== 'students';
+  }
 
   hideAnyForm();
   renderFilters(section);
@@ -454,7 +584,10 @@ function showSection(section: TableKey, pushState = true): void {
 
 window.addEventListener('popstate', () => {
   syncUrlToState();
-  showSection(activeTableKey, false);
+
+  if (currentUser && !currentUser.must_change_password) {
+    showSection(activeTableKey, false);
+  }
 });
 
 // -----------------------------------------------------------------------------
@@ -496,7 +629,7 @@ function renderAnyMenuOption(key: keyof typeof structure.menu): void {
   select.addEventListener('change', (event) => {
     const value = (event.target as HTMLSelectElement).value;
 
-    config.handler(value);
+    (config.handler as (value: string) => void)(value);
 
     if (key === 'language' && isLanguage(value)) {
       setLanguage(value);
@@ -524,7 +657,10 @@ function applyLanguageToUI(): void {
   }
 
   showMenu();
-  showSection(activeTableKey, false);
+
+  if (currentUser && !currentUser.must_change_password) {
+    showSection(activeTableKey, false);
+  }
 }
 
 window.addEventListener('languagechange', (event) => {
@@ -563,6 +699,7 @@ function renderAnyTable<K extends TableKey>(
   const thead = sharedTable.querySelector('thead')!;
   const tbody = sharedTable.querySelector('tbody')!;
   const tableStructure = structure.tables[tableKey];
+  const showActions = canWriteAcademic();
 
   thead.innerHTML = '';
   tbody.innerHTML = '';
@@ -596,9 +733,12 @@ function renderAnyTable<K extends TableKey>(
     headerRow.appendChild(th);
   });
 
-  const actionsHeader = document.createElement('th');
-  actionsHeader.textContent = getLocalizedText(structure.commonText.actions);
-  headerRow.appendChild(actionsHeader);
+  if (showActions) {
+    const actionsHeader = document.createElement('th');
+    actionsHeader.textContent = getLocalizedText(structure.commonText.actions);
+    headerRow.appendChild(actionsHeader);
+  }
+
   thead.appendChild(headerRow);
 
   records.forEach((record) => {
@@ -617,34 +757,41 @@ function renderAnyTable<K extends TableKey>(
       row.appendChild(td);
     });
 
-    const actionsTd = document.createElement('td');
-    actionsTd.className = 'actions';
+    if (showActions) {
+      const actionsTd = document.createElement('td');
+      actionsTd.className = 'actions';
 
-    const pkValues = pkFields.map((field) =>
-      String(record[field as keyof TableRecordMap[K]] ?? '')
-    );
+      const pkValues = pkFields.map((field) =>
+        String(record[field as keyof TableRecordMap[K]] ?? '')
+      );
 
-    const editBtn = document.createElement('button');
-    editBtn.className = 'edit-btn';
-    editBtn.textContent = getLocalizedText(structure.commonText.edit);
-    editBtn.dataset.pk = JSON.stringify(pkValues);
-    editBtn.addEventListener('click', (event) => {
-      const values = JSON.parse((event.currentTarget as HTMLElement).dataset.pk || '[]');
-      window.editRecord(tableKey, ...values);
-    });
+      const editBtn = document.createElement('button');
+      editBtn.className = 'edit-btn';
+      editBtn.textContent = getLocalizedText(structure.commonText.edit);
+      editBtn.dataset.pk = JSON.stringify(pkValues);
+      editBtn.addEventListener('click', (event) => {
+        const values = JSON.parse(
+          (event.currentTarget as HTMLElement).dataset.pk || '[]'
+        );
+        window.editRecord(tableKey, ...values);
+      });
 
-    const deleteBtn = document.createElement('button');
-    deleteBtn.className = 'delete-btn';
-    deleteBtn.textContent = getLocalizedText(structure.commonText.delete);
-    deleteBtn.dataset.pk = JSON.stringify(pkValues);
-    deleteBtn.addEventListener('click', (event) => {
-      const values = JSON.parse((event.currentTarget as HTMLElement).dataset.pk || '[]');
-      window.deleteRecord(tableKey, ...values);
-    });
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'delete-btn';
+      deleteBtn.textContent = getLocalizedText(structure.commonText.delete);
+      deleteBtn.dataset.pk = JSON.stringify(pkValues);
+      deleteBtn.addEventListener('click', (event) => {
+        const values = JSON.parse(
+          (event.currentTarget as HTMLElement).dataset.pk || '[]'
+        );
+        window.deleteRecord(tableKey, ...values);
+      });
 
-    actionsTd.appendChild(editBtn);
-    actionsTd.appendChild(deleteBtn);
-    row.appendChild(actionsTd);
+      actionsTd.appendChild(editBtn);
+      actionsTd.appendChild(deleteBtn);
+      row.appendChild(actionsTd);
+    }
+
     tbody.appendChild(row);
   });
 }
@@ -670,14 +817,14 @@ async function loadTableData<K extends TableKey>(tableKey: K): Promise<void> {
       }
     }
 
-    const response = await fetch(`${API_BASE}/${tableKey}?${params.toString()}`);
-    const result = await response.json();
+    const response = await apiFetch(`/${tableKey}?${params.toString()}`);
 
     if (!response.ok) {
-      return showErrorMessage(result.message ?? result.error ?? 'Error loading data');
+      return showErrorMessage(await errorMessage(response));
     }
 
-    const data = (result.data ?? []) as TableRecordMap[K][];
+    const result = await response.json();
+    const data = (result.data ?? getRowsFromApiResult(result)) as TableRecordMap[K][];
     const total = Number(result.total ?? data.length);
 
     renderAnyTable(tableKey, data);
@@ -687,8 +834,12 @@ async function loadTableData<K extends TableKey>(tableKey: K): Promise<void> {
       showSuccessMessage(result.message);
     }
   } catch (error) {
-    console.error(`Error loading ${tableKey}:`, error);
-    alert('Error al cargar datos / Error loading data');
+    const message = (error as Error).message;
+
+    if (message !== 'Authentication required' && message !== 'Forbidden') {
+      setMessage('Error cargando datos / Error loading data');
+      console.error(`Error loading ${tableKey}:`, error);
+    }
   }
 }
 
@@ -1078,6 +1229,25 @@ function validateForm<K extends TableKey>(tableKey: K): boolean {
     .every((message) => !message);
 }
 
+function appendPasswordField(form: HTMLFormElement, id: string, label: string): void {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'form-group';
+
+  const labelEl = document.createElement('label');
+  labelEl.htmlFor = id;
+  labelEl.textContent = label;
+  wrapper.appendChild(labelEl);
+
+  const input = document.createElement('input');
+  input.id = id;
+  input.type = 'password';
+  input.minLength = 8;
+  input.required = true;
+  wrapper.appendChild(input);
+
+  form.appendChild(wrapper);
+}
+
 async function renderFormField<K extends TableKey>(
   tableKey: K,
   fieldName: keyof TableRecordMap[K] & string,
@@ -1153,7 +1323,7 @@ async function loadDefaultOptions(column: ColumnDef): Promise<void> {
 
   if (!foreignKey || foreignKey.dependsOn) return;
 
-  const rows = await fetchRows(`${API_BASE}/${foreignKey.table}?page=1`);
+  const rows = await fetchRows(`/${foreignKey.table}?page=1`);
 
   column.options = rows.map((row) => {
     const record = row as Record<string, unknown>;
@@ -1221,7 +1391,7 @@ async function loadDependentOptions<K extends TableKey>(
 
   try {
     const rows = await fetchRows(
-      `${API_BASE}/${foreignKey.table}?filter_${foreignKey.dependsOn.foreignField}=${encodeURIComponent(parentValue)}`
+      `/${foreignKey.table}?filter_${foreignKey.dependsOn.foreignField}=${encodeURIComponent(parentValue)}`
     );
 
     rows.forEach((row) => {
@@ -1266,7 +1436,7 @@ async function resolveDependingForeignKeys<K extends TableKey>(
         [foreignKey.valueField, String(childValue)],
       ]).toString();
 
-      const response = await fetch(`${API_BASE}/${foreignKey.table}?${queryParams}`);
+      const response = await apiFetch(`/${foreignKey.table}?${queryParams}`);
 
       if (!response.ok) continue;
 
@@ -1317,10 +1487,101 @@ export function hideAnyForm(): void {
   formContainer.innerHTML = '';
 }
 
+function showUserForm(role: Exclude<Role, 'reader'>): void {
+  if (currentUser?.role !== 'admin') {
+    setMessage('Solo admin puede crear usuarios / Only admin can create users');
+    return;
+  }
+
+  const label = role === 'editor' ? 'Profesor / Professor' : 'Admin';
+
+  formContainer.innerHTML = '';
+
+  const form = document.createElement('form');
+
+  const title = document.createElement('h3');
+  title.textContent = `Agregar ${label} / Add ${label}`;
+  form.appendChild(title);
+
+  ['username', 'email'].forEach((field) => {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'form-group';
+
+    const labelEl = document.createElement('label');
+    labelEl.htmlFor = `user-${field}`;
+    labelEl.textContent = field === 'username' ? 'Usuario / Username' : 'Email';
+    wrapper.appendChild(labelEl);
+
+    const input = document.createElement('input');
+    input.id = `user-${field}`;
+    input.type = field === 'email' ? 'email' : 'text';
+    input.required = field === 'username';
+    wrapper.appendChild(input);
+
+    form.appendChild(wrapper);
+  });
+
+  appendPasswordField(form, 'user-password', 'Contraseña inicial / Initial Password');
+
+  const actionsDiv = document.createElement('div');
+  actionsDiv.className = 'form-actions';
+
+  const submitBtn = document.createElement('button');
+  submitBtn.type = 'submit';
+  submitBtn.textContent = getLocalizedText(structure.commonText.add);
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.className = 'cancel-btn';
+  cancelBtn.textContent = getLocalizedText(structure.commonText.cancel);
+  cancelBtn.addEventListener('click', hideAnyForm);
+
+  actionsDiv.appendChild(submitBtn);
+  actionsDiv.appendChild(cancelBtn);
+  form.appendChild(actionsDiv);
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+
+    const username = (document.getElementById('user-username') as HTMLInputElement).value.trim();
+    const email = (document.getElementById('user-email') as HTMLInputElement).value.trim();
+    const password = (document.getElementById('user-password') as HTMLInputElement).value;
+
+    try {
+      const response = await apiFetch('/admin/users', {
+        method: 'POST',
+        body: JSON.stringify({ username, email, password, role }),
+      });
+
+      if (!response.ok) {
+        return showErrorMessage(await errorMessage(response));
+      }
+
+      hideAnyForm();
+      setMessage(`${label} agregado / ${label} added`);
+    } catch (error) {
+      const message = (error as Error).message;
+
+      if (message !== 'Authentication required' && message !== 'Forbidden') {
+        setMessage('Error creando usuario / Error creating user');
+        console.error('Error creating user:', error);
+      }
+    }
+  });
+
+  formContainer.appendChild(form);
+  formContainer.style.display = 'block';
+}
+
 async function showAnyForm<K extends TableKey>(
   tableKey: K,
   record?: Partial<TableRecordMap[K]>
 ): Promise<void> {
+  if (!canWriteAcademic()) {
+    setMessage('No tenés permiso para editar / You do not have edit permission');
+    return;
+  }
+
   const tableConfig = structure.tables[tableKey];
   const isEdit = !!record;
   const formId = `${tableKey}-form`;
@@ -1356,6 +1617,14 @@ async function showAnyForm<K extends TableKey>(
 
   fields.forEach((field) => form.appendChild(field));
 
+  if (tableKey === 'students' && !isEdit) {
+    appendPasswordField(
+      form,
+      'students-password',
+      'Contraseña inicial / Initial Password'
+    );
+  }
+
   const actionsDiv = document.createElement('div');
   actionsDiv.className = 'form-actions';
 
@@ -1385,11 +1654,15 @@ async function showAnyForm<K extends TableKey>(
 
     if (!validateForm(tableKey)) return;
 
-    const payload = collectFormData(tableKey);
+    const payload = collectFormData(tableKey) as Record<string, unknown>;
+
+    if (tableKey === 'students' && !isEdit) {
+      payload.password = (document.getElementById('students-password') as HTMLInputElement).value;
+    }
 
     const pkAndTheirValues = getPkFields(tableKey).map((pkFieldName) => {
       const value =
-        (payload as Record<string, unknown>)[pkFieldName] ??
+        payload[pkFieldName] ??
         (record as Record<string, unknown> | undefined)?.[pkFieldName] ??
         '';
 
@@ -1399,9 +1672,8 @@ async function showAnyForm<K extends TableKey>(
     const queryParams = new URLSearchParams(pkAndTheirValues).toString();
 
     try {
-      const response = await fetch(`${API_BASE}/${tableKey}?${queryParams}`, {
+      const response = await apiFetch(`/${tableKey}?${queryParams}`, {
         method: isEdit ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
 
@@ -1415,15 +1687,25 @@ async function showAnyForm<K extends TableKey>(
         return showErrorMessage(responseJson.message ?? 'Error saving record');
       }
 
-      showSuccessMessage(responseJson.message ?? '');
       hideAnyForm();
+
+      if (tableKey === 'students' && !isEdit && payload.password) {
+        setMessage('Alumno y usuario creados / Student and user created');
+      } else {
+        showSuccessMessage(responseJson.message ?? '');
+      }
+
       loadTableData(tableKey);
     } catch (error) {
-      console.error(
-        `Error saving ${getLocalizedText(tableConfig.uiName).toLowerCase()}:`,
-        error
-      );
-      alert('No se pudo conectar con el servidor / Could not reach the server');
+      const message = (error as Error).message;
+
+      if (message !== 'Authentication required' && message !== 'Forbidden') {
+        setMessage('Error guardando / Error saving');
+        console.error(
+          `Error saving ${getLocalizedText(tableConfig.uiName).toLowerCase()}:`,
+          error
+        );
+      }
     }
   });
 }
@@ -1460,7 +1742,7 @@ window.editRecord = async <K extends TableKey>(
       ])
     ).toString();
 
-    const response = await fetch(`${API_BASE}/${tableKey}?${queryParams}`);
+    const response = await apiFetch(`/${tableKey}?${queryParams}`);
 
     if (!response.ok) {
       return showErrorMessage(await errorMessage(response));
@@ -1474,11 +1756,14 @@ window.editRecord = async <K extends TableKey>(
 
     const record = responseAnswer.data as TableRecordMap[K];
 
-    showSuccessMessage(responseAnswer.message ?? '');
     showAnyForm(tableKey, record);
   } catch (error) {
-    console.error(`Error loading ${tableKey} for edit:`, error);
-    alert('No se pudo conectar con el servidor / Could not reach the server');
+    const message = (error as Error).message;
+
+    if (message !== 'Authentication required' && message !== 'Forbidden') {
+      setMessage('Error cargando registro / Error loading record');
+      console.error(`Error loading ${tableKey} for edit:`, error);
+    }
   }
 };
 
@@ -1503,7 +1788,7 @@ window.deleteRecord = async <K extends TableKey>(
       ])
     ).toString();
 
-    const response = await fetch(`${API_BASE}/${tableKey}?${queryParams}`, {
+    const response = await apiFetch(`/${tableKey}?${queryParams}`, {
       method: 'DELETE',
     });
 
@@ -1520,8 +1805,12 @@ window.deleteRecord = async <K extends TableKey>(
     showSuccessMessage(responseAnswer.message ?? '');
     loadTableData(tableKey);
   } catch (error) {
-    console.error(`Error deleting ${tableKey}:`, error);
-    alert('No se pudo conectar con el servidor / Could not reach the server');
+    const message = (error as Error).message;
+
+    if (message !== 'Authentication required' && message !== 'Forbidden') {
+      setMessage('Error eliminando / Error deleting');
+      console.error(`Error deleting ${tableKey}:`, error);
+    }
   }
 };
 
@@ -1537,9 +1826,114 @@ if (appTitleEl) {
   appTitleEl.textContent = getLocalizedText(structure.commonText.appTitle);
 }
 
-createTableNavButtons();
-syncUrlToState();
-showSection(activeTableKey, false);
-showMenu();
+addTeacherBtn.addEventListener('click', () => showUserForm('editor'));
+addAdminBtn.addEventListener('click', () => showUserForm('admin'));
+
+loginForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  loginError.hidden = true;
+
+  const formData = new FormData(loginForm);
+
+  const payload = {
+    username: String(formData.get('username') ?? ''),
+    password: String(formData.get('password') ?? ''),
+  };
+
+  try {
+    const response = await fetch(`${API_BASE}/auth/login`, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      showLogin('Credenciales inválidas / Invalid credentials');
+      return;
+    }
+
+    const data = (await response.json()) as { user: AuthUser };
+
+    loginForm.reset();
+    showApp(data.user);
+  } catch (error) {
+    showLogin('Error ingresando / Login error');
+    console.error('Login error:', error);
+  }
+});
+
+passwordForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  passwordError.hidden = true;
+
+  const formData = new FormData(passwordForm);
+
+  const payload = {
+    current_password: String(formData.get('current_password') ?? ''),
+    new_password: String(formData.get('new_password') ?? ''),
+  };
+
+  try {
+    const response = await fetch(`${API_BASE}/auth/change-password`, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      passwordError.textContent =
+        'No se pudo cambiar la contraseña / Password change failed';
+      passwordError.hidden = false;
+      return;
+    }
+
+    const data = (await response.json()) as { user: AuthUser };
+
+    passwordForm.reset();
+    showApp(data.user);
+  } catch (error) {
+    passwordError.textContent =
+      'Error cambiando contraseña / Password change error';
+    passwordError.hidden = false;
+    console.error('Password change error:', error);
+  }
+});
+
+logoutBtn.addEventListener('click', async () => {
+  await fetch(`${API_BASE}/auth/logout`, {
+    method: 'POST',
+    credentials: 'same-origin',
+  });
+
+  showLogin();
+});
+
+async function initialize(): Promise<void> {
+  createTableNavButtons();
+  syncUrlToState();
+  showMenu();
+
+  try {
+    const response = await fetch(`${API_BASE}/auth/me`, {
+      credentials: 'same-origin',
+    });
+
+    if (!response.ok) {
+      showLogin();
+      return;
+    }
+
+    const data = (await response.json()) as { user: AuthUser };
+
+    showApp(data.user);
+  } catch (error) {
+    showLogin();
+    console.error('Session check failed:', error);
+  }
+}
+
+initialize();
 
 export {};

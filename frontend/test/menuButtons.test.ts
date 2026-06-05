@@ -5,11 +5,23 @@
 describe('Menu Pickers (Theme & Language)', () => {
   beforeEach(() => {
     document.body.innerHTML = `
-      <div id="app-title"></div>
+      <section id="auth-section"></section>
+      <section id="password-section"></section>
+      <form id="login-form"></form>
+      <div id="login-error"></div>
+      <form id="password-form"></form>
+      <div id="password-error"></div>
+      <div id="app-shell"></div>
+      <span id="current-user"></span>
+      <button id="logout-btn"></button>
+      <div id="status-message"></div>
       <div id="menu-nav"></div>
       <div id="table-nav"></div>
       <div id="view-title"></div>
       <button id="add-record-btn"></button>
+      <div id="admin-actions"></div>
+      <button id="add-teacher-btn"></button>
+      <button id="add-admin-btn"></button>
       <div id="record-form"></div>
       <table id="records-table">
         <thead></thead>
