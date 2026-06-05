@@ -193,6 +193,20 @@ form {
     margin-bottom: 16px;
 }
 
+.field-error {
+    display: block;
+    margin-top: 4px;
+    min-height: 1em;
+    color: var(--danger);
+    font-size: 0.85em;
+}
+
+input.invalid,
+select.invalid,
+textarea.invalid {
+    border-color: var(--danger);
+}
+
 label {
     display: block;
     margin-bottom: 6px;

@@ -1,8 +1,9 @@
 // Main application file
 // Code and comments in English
 import {structure} from '@shared/ssot/structure';
-import {TypeMap, MyTypeNames, ColumnDef, TableStructure, InferType, TableKey, TableRecordMap, Response} from '@shared/types/types';
+import { ColumnDef, TableStructure, TableKey, TableRecordMap, Response as ApiResponse } from '@shared/types/types';
 import {getPkFields} from '@shared/utils/utils';
+import {validateField} from '@shared/validation/validate';
 import '../styles/style.css';
 
 const API_BASE = '/api';
@@ -20,27 +21,34 @@ type RendererProps<K extends TableKey> = {
 };
 type RendererFunc = <K extends TableKey>(props: RendererProps<K>) => HTMLElement;
 
+// The API returns dates as ISO timestamps, but <input type="date"> needs 'YYYY-MM-DD' or it blanks.
+function toInputValue(column: ColumnDef, raw: unknown): string {
+  if (raw == null) return '';
+  if (column.input === 'date') return String(raw).slice(0, 10);
+  return String(raw);
+}
+
 const renderers: Record<'input'|'textarea'|'select', RendererFunc> = {
   input<K extends TableKey>({ id, fieldName, column, record, isEdit }: RendererProps<K>) {
     const inp = document.createElement('input');
     inp.id = id;
     inp.type = column.input ?? (column.type === 'number' ? 'number' : 'text');
-    if (column.required) inp.required = true;
+    if (column.validator?.required) inp.required = true;
     if (isEdit && column.readonlyOnEdit) inp.readOnly = true;
-    (inp as HTMLInputElement).value = String(record?.[fieldName] ?? '');
+    (inp as HTMLInputElement).value = toInputValue(column, record?.[fieldName]);
     return inp;
   },
   textarea<K extends TableKey>({ id, fieldName, column, record }: RendererProps<K>) {
     const ta = document.createElement('textarea');
     ta.id = id;
-    if (column.required) ta.required = true;
+    if (column.validator?.required) ta.required = true;
     (ta as HTMLTextAreaElement).value = String(record?.[fieldName] ?? '');
     return ta;
   },
   select<K extends TableKey>({ id, fieldName, column, record }: RendererProps<K>) {
     const sel = document.createElement('select');
     sel.id = id;
-    if (column.required) sel.required = true;
+    if (column.validator?.required) sel.required = true;
     (column.options || []).forEach((opt: { value: string; label: string }) => {
       const o = document.createElement('option');
       o.value = opt.value;
@@ -634,6 +642,28 @@ function getFieldElementId(tableKey: TableKey, fieldName: string): string {
   return `${tableKey}-${fieldName}`;
 }
 
+function coerceFieldValue(column: ColumnDef, rawValue: string): unknown {
+  if (column.type === 'number') return rawValue === '' ? null : Number(rawValue);
+  return rawValue;
+}
+
+function showFieldValidation(tableKey: TableKey, fieldName: string, column: ColumnDef): string | undefined {
+  const id = getFieldElementId(tableKey, fieldName);
+  const element = document.getElementById(id) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null;
+  const errorEl = document.getElementById(`${id}-error`);
+  const message = validateField(tableKey, fieldName, coerceFieldValue(column, element?.value ?? ''));
+  if (errorEl) errorEl.textContent = message ?? '';
+  element?.classList.toggle('invalid', !!message);
+  return message;
+}
+
+function validateForm<K extends TableKey>(tableKey: K): boolean {
+  return Object.entries(structure.tables[tableKey].columns)
+    .filter(([, column]) => column.editable !== false)
+    .map(([fieldName, column]) => showFieldValidation(tableKey, fieldName, column as ColumnDef))
+    .every((message) => !message);
+}
+
 
 function renderFormField<K extends TableKey>(tableKey: K, fieldName: keyof TableRecordMap[K] & string, column: ColumnDef, record?: Partial<TableRecordMap[K]>, isEdit = false): HTMLElement {
   const id = getFieldElementId(tableKey, fieldName);
@@ -649,6 +679,16 @@ function renderFormField<K extends TableKey>(tableKey: K, fieldName: keyof Table
   const renderer = getRenderer<K>(rendererKey);
   const inputEl = renderer({ id, fieldName, column, record, isEdit });
   wrapper.appendChild(inputEl);
+
+  const errorEl = document.createElement('small');
+  errorEl.className = 'field-error';
+  errorEl.id = `${id}-error`;
+  wrapper.appendChild(errorEl);
+
+  // Validate on blur, then keep the message live once the field has been flagged.
+  inputEl.addEventListener('blur', () => showFieldValidation(tableKey, fieldName, column));
+  inputEl.addEventListener('input', () => { if (errorEl.textContent) showFieldValidation(tableKey, fieldName, column); });
+
   return wrapper;
 }
 
@@ -661,18 +701,9 @@ function collectFormData<K extends TableKey>(tableKey: K): Partial<TableRecordMa
     .forEach(([fieldName, column]) => {
       const id = getFieldElementId(tableKey, fieldName);
       const element = document.getElementById(id) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null;
-      const rawValue = element?.value ?? '';
-
-      if (column.type === 'number') {
-        if (rawValue === '') {
-          payload[fieldName as keyof TableRecordMap[K]] = (column.nullable ? null : 0) as TableRecordMap[K][keyof TableRecordMap[K]];
-        } else {
-          payload[fieldName as keyof TableRecordMap[K]] = Number(rawValue) as TableRecordMap[K][keyof TableRecordMap[K]];
-        }
-        return;
-      }
-
-      payload[fieldName as keyof TableRecordMap[K]] = rawValue as TableRecordMap[K][keyof TableRecordMap[K]];
+      // Empty number -> null (not 0), so the server can tell "cleared" from a real value.
+      payload[fieldName as keyof TableRecordMap[K]] =
+        coerceFieldValue(column, element?.value ?? '') as TableRecordMap[K][keyof TableRecordMap[K]];
     });
 
   return payload;
@@ -724,28 +755,65 @@ async function showAnyForm<K extends TableKey>(tableKey: K, record?: Partial<Tab
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
+
+    if (!validateForm(tableKey)) return;
+
     const payload = collectFormData(tableKey);
-    const pkAndTheirValues = getPkFields(tableKey).map((pkFieldName) => [pkFieldName, String((payload as Record<string, unknown>)[pkFieldName])?? String((record as Record<string, unknown> | undefined)?.[pkFieldName]) ?? '']);
+
+    const pkAndTheirValues = getPkFields(tableKey).map((pkFieldName) => {
+      const value =
+        (payload as Record<string, unknown>)[pkFieldName] ??
+        (record as Record<string, unknown> | undefined)?.[pkFieldName] ??
+        '';
+
+      return [pkFieldName, String(value)];
+    });
+
     const queryParams = new URLSearchParams(pkAndTheirValues).toString();
-    let response;    
+
     try {
-      response = (await fetch(`${API_BASE}/${tableKey}?` + queryParams, {
+      const response = await fetch(`${API_BASE}/${tableKey}?${queryParams}`, {
         method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
-      }));
-      const responseJson: Response = await response.json();
-      if (!responseJson.success){
-        showErrorMessage(responseJson.message ?? '');
+      });
+
+      if (!response.ok) {
+        return showErrorMessage(await errorMessage(response));
       }
+
+      const responseJson: ApiResponse = await response.json();
+
+      if (!responseJson.success) {
+        return showErrorMessage(responseJson.message ?? 'Error saving record');
+      }
+
       showSuccessMessage(responseJson.message ?? '');
+
       hideAnyForm();
       loadTableData(tableKey);
     } catch (error) {
       console.error(`Error saving ${tableConfig.uiName.toLowerCase()}:`, error);
-      alert('Error al guardar / Error saving');
+      alert('No se pudo conectar con el servidor / Could not reach the server');
     }
   });
+}
+
+async function errorMessage(response: globalThis.Response): Promise<string> {
+  try {
+    const body = await response.json();
+
+    if (body && typeof body.message === 'string') return body.message;
+    if (body && typeof body.error === 'string') return body.error;
+
+    if (body && Array.isArray(body.errors)) {
+      return body.errors.join('\n');
+    }
+  } catch {
+    // response body was not JSON
+  }
+
+  return `Error ${response.status}`;
 }
 
 declare global {
@@ -759,37 +827,68 @@ declare global {
 // Global functions for onclick
 window.hideAnyForm = hideAnyForm;
 
+
 window.editRecord = async <K extends TableKey>(tableKey: K, ...pkValues: string[]) => {
   try {
-    const queryParams = new URLSearchParams(getPkFields(tableKey).map((pkFieldName, index) => [pkFieldName, pkValues[index]])).toString();
-    const response = await fetch(`${API_BASE}/${tableKey}?` + queryParams);
-    const responseAnswer: Response = await response.json(); 
-    const record = responseAnswer.data as TableRecordMap[K];
-    if (!responseAnswer.success){
-      return showErrorMessage(responseAnswer.message ?? '');
+    const queryParams = new URLSearchParams(
+      getPkFields(tableKey).map((pkFieldName, index) => [
+        pkFieldName,
+        pkValues[index],
+      ])
+    ).toString();
+
+    const response = await fetch(`${API_BASE}/${tableKey}?${queryParams}`);
+
+    if (!response.ok) {
+      return showErrorMessage(await errorMessage(response));
     }
+
+    const responseAnswer: ApiResponse = await response.json();
+
+    if (!responseAnswer.success) {
+      return showErrorMessage(responseAnswer.message ?? 'Error loading record');
+    }
+
+    const record = responseAnswer.data as TableRecordMap[K];
+
     showSuccessMessage(responseAnswer.message ?? '');
     showAnyForm(tableKey, record);
   } catch (error) {
     console.error(`Error loading ${tableKey} for edit:`, error);
-    alert('Error al cargar registro / Error loading record');
+    alert('No se pudo conectar con el servidor / Could not reach the server');
   }
 };
 window.deleteRecord = async <K extends TableKey>(tableKey: K, ...pkValues: string[]) => {
   const tableConfig = structure.tables[tableKey];
+
   if (confirm(`¿Está seguro de que desea eliminar este ${tableConfig.uiName.toLowerCase()}? / Are you sure you want to delete this ${tableConfig.uiName.toLowerCase()}?`)) {
     try {
-      const queryParams = new URLSearchParams(getPkFields(tableKey).map((pkFieldName, index) => [pkFieldName, pkValues[index]])).toString();
-      const response = await fetch(`${API_BASE}/${tableKey}?` + queryParams, {method: 'DELETE'});
-      const responseAnswer: Response = await response.json(); 
-      if (!responseAnswer.success){
-        return showErrorMessage(responseAnswer.message ?? '');
+      const queryParams = new URLSearchParams(
+        getPkFields(tableKey).map((pkFieldName, index) => [
+          pkFieldName,
+          pkValues[index],
+        ])
+      ).toString();
+
+      const response = await fetch(`${API_BASE}/${tableKey}?${queryParams}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        return showErrorMessage(await errorMessage(response));
       }
+
+      const responseAnswer: ApiResponse = await response.json();
+
+      if (!responseAnswer.success) {
+        return showErrorMessage(responseAnswer.message ?? 'Error deleting record');
+      }
+
       showSuccessMessage(responseAnswer.message ?? '');
       loadTableData(tableKey);
     } catch (error) {
       console.error(`Error deleting ${tableKey}:`, error);
-      alert('Error al eliminar / Error deleting');
+      alert('No se pudo conectar con el servidor / Could not reach the server');
     }
   }
 };

@@ -1,22 +1,84 @@
-import      { sendSuccessOperationMessage, sendNotFoundMessage, sendErrorMessage } from "../status_messages";
-import      { getEntityName, tryQuery, columnNamesEqualsNumber } from '../helpers';
-import      { assertValidDeleteInstance } from '../assertions';
-import type { TableKey, Response } from "../../../shared/src/types/types";
-import      { getPkFields } from "../../../shared/src/utils/utils";
-import        express from 'express';
-import      { Pool } from "pg";
+import express from 'express';
+import { Pool } from 'pg';
 
-export async function deleteHandler(req: express.Request, res: express.Response, pool: Pool) {
-  const tableName: string = req.params.tableName;
-  const pkFieldsNames: string[] = Object.values(req.query) as string[]; 
-  const entityName = getEntityName(tableName as TableKey);
-  
-  if (assertValidDeleteInstance(tableName, res, pkFieldsNames, entityName)){
-    const whereArgumentsString = columnNamesEqualsNumber(getPkFields(tableName as TableKey), 1, ' AND ');
-    const query: string = `DELETE FROM ${tableName} WHERE ${whereArgumentsString} RETURNING *`;
-    const queryResponse: Response = await tryQuery(pool, query, Object.values(req.query));
-    if (queryResponse.data?.rowCount === 0) return sendNotFoundMessage(res, entityName);
-    else if(!queryResponse.success) return sendErrorMessage(res, queryResponse.message);
-    return sendSuccessOperationMessage(res, entityName, queryResponse.data?.rows?.[0], 'deleted', 200);
+import { structure } from '../../../shared/src/ssot/structure';
+import type { TableKey, Response } from '../../../shared/src/types/types';
+import { getPkFields } from '../../../shared/src/utils/utils';
+
+import {
+  sendSuccessOperationMessage,
+  sendNotFoundMessage,
+  sendErrorMessage,
+} from '../status_messages';
+
+import {
+  getEntityName,
+  tryQuery,
+  columnNamesEqualsNumber,
+} from '../helpers';
+
+import {
+  validateOnlyPk,
+  sendErrorsIfInvalid,
+} from '../validation/validate';
+
+export async function deleteHandler(
+  req: express.Request,
+  res: express.Response,
+  pool: Pool
+) {
+  const tableNameParam = req.params.tableName;
+
+  if (!isKnownTable(tableNameParam)) {
+    return sendNotFoundMessage(res, tableNameParam);
   }
+
+  const tableName = tableNameParam as TableKey;
+  const entityName = getEntityName(tableName);
+
+  const pk = validateOnlyPk(tableName, req.query);
+
+  if (sendErrorsIfInvalid(res, pk)) {
+    return;
+  }
+
+  const pkFields = getPkFields(tableName);
+
+  const pkValues = pkFields.map(
+    (pkField) => (pk.data as Record<string, unknown>)[pkField]
+  );
+
+  const whereArgumentsString = columnNamesEqualsNumber(
+    pkFields,
+    1,
+    ' AND '
+  );
+
+  const query = `
+    DELETE FROM ${tableName}
+    WHERE ${whereArgumentsString}
+    RETURNING *
+  `;
+
+  const queryResponse: Response = await tryQuery(pool, query, pkValues);
+
+  if (!queryResponse.success) {
+    return sendErrorMessage(res, queryResponse.message);
+  }
+
+  if (queryResponse.data?.rowCount === 0) {
+    return sendNotFoundMessage(res, entityName);
+  }
+
+  return sendSuccessOperationMessage(
+    res,
+    entityName,
+    queryResponse.data?.rows?.[0],
+    'deleted',
+    200
+  );
+}
+
+function isKnownTable(tableName: string): tableName is TableKey {
+  return Object.prototype.hasOwnProperty.call(structure.tables, tableName);
 }
