@@ -42,12 +42,16 @@ type ForeignKeyDef = {
   };
 };
 
+type Language = 'es' | 'en';
+type LocalizedText = Record<Language, string>;
+
 type ColumnDef = {
   type: MyTypeNames;
-  label?: string;
+  label?: LocalizedText;
   input?: 'text' | 'email' | 'date' | 'number' | 'textarea' | 'select';
-  options?: Array<{ value: string; label: string }>;
+  options?: Array<{ value: string; label: LocalizedText }>;
   editable?: boolean;
+  required?: boolean;
   readonlyOnEdit?: boolean;
   validator?: ColumnValidator;
   nullable?: boolean;
@@ -58,9 +62,9 @@ type ColumnDef = {
 type TableStructure = {
   columns: Record<string, ColumnDef>
   pk: string | string[]
-  uiName: string
-  title?: string
-  addButtonLabel?: string
+  uiName: LocalizedText
+  title?: LocalizedText
+  addButtonLabel?: LocalizedText
   referencedTables?: string[]
 }
 
@@ -74,4 +78,14 @@ type TableRecordMap = {
   [T in keyof typeof structure.tables]: InferType<(typeof structure.tables)[T]['columns']>
 };
 
-export type {TypeMap, MyTypeNames, ColumnValidator, ColumnDef, TableStructure, InferType, TableKey, TableRecordMap, Response, ForeignKeyDef};
+type RendererProps<K extends TableKey> = {
+  id: string;
+  fieldName: keyof TableRecordMap[K] & string;
+  column: ColumnDef;
+  record?: Partial<TableRecordMap[K]>;
+  isEdit?: boolean;
+};
+
+type RendererFunc = <K extends TableKey>(props: RendererProps<K>) => HTMLElement;
+
+export type {TypeMap, MyTypeNames, ColumnValidator, ColumnDef, TableStructure, InferType, TableKey, TableRecordMap, Response, ForeignKeyDef, Language, LocalizedText, RendererProps, RendererFunc};

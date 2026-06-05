@@ -1,63 +1,261 @@
 // Main application file
 // Code and comments in English
-import {structure} from '@shared/ssot/structure';
-import { ForeignKeyDef, ColumnDef, TableStructure, TableKey, TableRecordMap, Response as ApiResponse } from '@shared/types/types';
-import {getPkFields} from '@shared/utils/utils';
-import {validateField} from '@shared/validation/validate';
+import { structure } from '@shared/ssot/structure';
+import {
+  Language,
+  LocalizedText,
+  ForeignKeyDef,
+  ColumnDef,
+  TableStructure,
+  TableKey,
+  TableRecordMap,
+  RendererProps,
+  RendererFunc,
+  Response as ApiResponse,
+} from '@shared/types/types';
+import { getPkFields } from '@shared/utils/utils';
+import { validateField } from '@shared/validation/validate';
 import '../styles/style.css';
 
 const API_BASE = '/api';
+const PAGE_SIZE = 20;
 
+// -----------------------------------------------------------------------------
+// Localization
+// -----------------------------------------------------------------------------
 
+const storedLanguage = localStorage.getItem('language');
 
+function isLanguage(value: string | null): value is Language {
+  return value === 'es' || value === 'en';
+}
 
-type RendererProps<K extends TableKey> = {
-  id: string;
-  fieldName: keyof TableRecordMap[K] & string;
-  column: ColumnDef;
-  record?: Partial<TableRecordMap[K]>;
-  isEdit?: boolean;
-};
-type RendererFunc = <K extends TableKey>(props: RendererProps<K>) => HTMLElement;
+let currentLanguage: Language = isLanguage(storedLanguage) ? storedLanguage : 'es';
 
-// The API returns dates as ISO timestamps, but <input type="date"> needs 'YYYY-MM-DD' or it blanks.
+export function getLanguage(): Language {
+  return currentLanguage;
+}
+
+export function setLanguage(language: Language): void {
+  currentLanguage = language;
+  localStorage.setItem('language', language);
+}
+
+export function getLocalizedText(text?: LocalizedText | string): string {
+  if (!text) return '';
+  if (typeof text === 'string') return text;
+  return text[currentLanguage] ?? text.es ?? text.en ?? '';
+}
+
+// -----------------------------------------------------------------------------
+// DOM elements
+// -----------------------------------------------------------------------------
+
+const viewTitle = document.getElementById('view-title') as HTMLElement;
+const addRecordBtn = document.getElementById('add-record-btn') as HTMLButtonElement;
+const formContainer = document.getElementById('record-form') as HTMLElement;
+const sharedTable = document.getElementById('records-table') as HTMLTableElement;
+const navContainer = document.getElementById('table-nav') as HTMLElement | null;
+const menuContainer = document.getElementById('menu-nav') as HTMLElement | null;
+
+if (!navContainer) throw new Error('Missing #table-nav element in DOM');
+if (!menuContainer) throw new Error('Missing #menu-nav element in DOM');
+
+const tableKeys = Object.keys(structure.tables) as TableKey[];
+const menuKeys = Object.keys(structure.menu) as Array<keyof typeof structure.menu>;
+
+// -----------------------------------------------------------------------------
+// UI feedback
+// -----------------------------------------------------------------------------
+
+function showSuccessMessage(message: string): void {
+  if (!message) return;
+
+  const outputContainer = document.querySelector('.successOutputInfoContainer');
+  const outputText = document.querySelector('.successOutputInfo') as HTMLDivElement | null;
+
+  if (!outputContainer || !outputText) return;
+
+  if (outputContainer.classList.contains('invisible')) {
+    outputText.textContent = message;
+    outputContainer.classList.remove('invisible');
+
+    setTimeout(() => {
+      outputText.textContent = '';
+      outputContainer.classList.add('invisible');
+    }, 1500);
+  }
+}
+
+function showErrorMessage(message: string): void {
+  const dialog = document.createElement('dialog');
+  dialog.classList.add('dialogErrorMessage');
+
+  const dialogTitle = document.createElement('h1');
+  dialogTitle.textContent = 'Error';
+
+  const dialogMessage = document.createElement('p');
+  dialogMessage.textContent = message;
+
+  const closeButton = document.createElement('button');
+  closeButton.textContent = 'Aceptar';
+  closeButton.addEventListener('click', () => {
+    dialog.close();
+    dialog.remove();
+  });
+
+  dialog.addEventListener('click', (event) => {
+    const dialogRect = dialog.getBoundingClientRect();
+
+    if (
+      event.clientX < dialogRect.left ||
+      event.clientX > dialogRect.right ||
+      event.clientY < dialogRect.top ||
+      event.clientY > dialogRect.bottom
+    ) {
+      dialog.close();
+      dialog.remove();
+    }
+  });
+
+  appendChildren(dialog, [dialogTitle, dialogMessage, closeButton]);
+  document.querySelector('.container')?.appendChild(dialog);
+  dialog.setAttribute('closedby', 'any');
+  dialog.showModal();
+}
+
+function appendChildren(element: HTMLElement, children: HTMLElement[]): void {
+  children.forEach((child) => element.appendChild(child));
+}
+
+async function errorMessage(response: globalThis.Response): Promise<string> {
+  try {
+    const body = await response.json();
+
+    if (body && typeof body.message === 'string') return body.message;
+    if (body && typeof body.error === 'string') return body.error;
+
+    if (body && Array.isArray(body.errors)) {
+      return body.errors.join('\n');
+    }
+  } catch {
+    // Response body was not JSON.
+  }
+
+  return `Error ${response.status}`;
+}
+
+// -----------------------------------------------------------------------------
+// API helpers
+// -----------------------------------------------------------------------------
+
+function getRowsFromApiResult(result: unknown): unknown[] {
+  if (Array.isArray(result)) return result;
+
+  if (
+    result &&
+    typeof result === 'object' &&
+    Array.isArray((result as { data?: unknown }).data)
+  ) {
+    return (result as { data: unknown[] }).data;
+  }
+
+  return [];
+}
+
+async function fetchRows(url: string): Promise<unknown[]> {
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error(await errorMessage(response));
+  }
+
+  const result = await response.json();
+  return getRowsFromApiResult(result);
+}
+
+// -----------------------------------------------------------------------------
+// Renderers
+// -----------------------------------------------------------------------------
+
 function toInputValue(column: ColumnDef, raw: unknown): string {
   if (raw == null) return '';
   if (column.input === 'date') return String(raw).slice(0, 10);
   return String(raw);
 }
 
-const renderers: Record<'input'|'textarea'|'select', RendererFunc> = {
-  input<K extends TableKey>({ id, fieldName, column, record, isEdit }: RendererProps<K>) {
-    const inp = document.createElement('input');
-    inp.id = id;
-    inp.type = column.input ?? (column.type === 'number' ? 'number' : 'text');
-    if (column.validator?.required) inp.required = true;
-    if (isEdit && column.readonlyOnEdit) inp.readOnly = true;
-    (inp as HTMLInputElement).value = toInputValue(column, record?.[fieldName]);
-    return inp;
+const renderers: Record<'input' | 'textarea' | 'select', RendererFunc> = {
+  input<K extends TableKey>({
+    id,
+    fieldName,
+    column,
+    record,
+    isEdit,
+  }: RendererProps<K>) {
+    const input = document.createElement('input');
+
+    input.id = id;
+    input.type = column.input ?? (column.type === 'number' ? 'number' : 'text');
+
+    if (column.validator?.required) input.required = true;
+    if (isEdit && column.readonlyOnEdit) input.readOnly = true;
+
+    input.value = toInputValue(column, record?.[fieldName]);
+
+    return input;
   },
-  textarea<K extends TableKey>({ id, fieldName, column, record }: RendererProps<K>) {
-    const ta = document.createElement('textarea');
-    ta.id = id;
-    if (column.validator?.required) ta.required = true;
-    (ta as HTMLTextAreaElement).value = String(record?.[fieldName] ?? '');
-    return ta;
+
+  textarea<K extends TableKey>({
+    id,
+    fieldName,
+    column,
+    record,
+  }: RendererProps<K>) {
+    const textarea = document.createElement('textarea');
+
+    textarea.id = id;
+
+    if (column.validator?.required) textarea.required = true;
+
+    textarea.value = String(record?.[fieldName] ?? '');
+
+    return textarea;
   },
-  select<K extends TableKey>({ id, fieldName, column, record, isEdit }: RendererProps<K>) {
-    const sel = document.createElement('select');
-    if (isEdit && column.readonlyOnEdit) { sel.disabled = true;}
-    sel.id = id;
-    if (column.validator?.required) sel.required = true;
-    (column.options || []).forEach((opt: { value: string; label: string }) => {
-      const o = document.createElement('option');
-      o.value = opt.value;
-      o.textContent = opt.label;
-      if (String(record?.[fieldName] ?? '') === opt.value) o.selected = true;
-      sel.appendChild(o);
+
+  select<K extends TableKey>({
+    id,
+    fieldName,
+    column,
+    record,
+    isEdit,
+  }: RendererProps<K>) {
+    const select = document.createElement('select');
+
+    select.id = id;
+
+    if (isEdit && column.readonlyOnEdit) select.disabled = true;
+    if (column.validator?.required) select.required = true;
+
+    const blankOption = document.createElement('option');
+    blankOption.value = '';
+    blankOption.textContent = '--';
+    select.appendChild(blankOption);
+
+    (column.options || []).forEach((option) => {
+      const optionEl = document.createElement('option');
+
+      optionEl.value = option.value;
+      optionEl.textContent = getLocalizedText(option.label as LocalizedText | string);
+
+      if (String(record?.[fieldName] ?? '') === option.value) {
+        optionEl.selected = true;
+      }
+
+      select.appendChild(optionEl);
     });
-    return sel;
-  }
+
+    return select;
+  },
 };
 
 type RendererKey = keyof typeof renderers;
@@ -67,42 +265,19 @@ function getRenderer<K extends TableKey>(key: RendererKey) {
 }
 
 function mapInputToRenderer(input?: ColumnDef['input']): RendererKey {
-  if (!input) return 'input';
   if (input === 'textarea') return 'textarea';
   if (input === 'select') return 'select';
   return 'input';
 }
 
-
-
-// DOM elements (derive nav buttons from `structure.tables` keys to avoid duplication)
-const viewTitle = document.getElementById('view-title') as HTMLElement;
-const addRecordBtn = document.getElementById('add-record-btn') as HTMLButtonElement;
-const formContainer = document.getElementById('record-form') as HTMLElement;
-const sharedTable = document.getElementById('records-table') as HTMLTableElement;
-
-const tableKeys = Object.keys(structure.tables) as TableKey[];
-const menuKeys = Object.keys(structure.menu) as Array<keyof typeof structure.menu>;
-const navContainer = document.getElementById('table-nav') as HTMLElement | null;
-const menuContainer = document.getElementById('menu-nav') as HTMLElement | null;
-
-if (!navContainer) throw new Error('Missing #table-nav element in DOM');
-if (!menuContainer) throw new Error('Missing #menu-nav element in DOM');
+// -----------------------------------------------------------------------------
+// Navigation and state
+// -----------------------------------------------------------------------------
 
 const tableNavButtons = {} as Record<TableKey, HTMLButtonElement>;
-for (const key of tableKeys) {
-  const cfg = structure.tables[key];
-  const btn = document.createElement('button');
-  btn.id = `${key}-btn`;
-  btn.textContent = cfg.title ?? cfg.uiName;
-  navContainer.appendChild(btn);
-  tableNavButtons[key] = btn;
-  btn.addEventListener('click', () => showSection(key));
-}
 
-let activeTableKey: TableKey = tableKeys[0] as TableKey;
+let activeTableKey: TableKey = tableKeys[0];
 
-// --- State Management ---
 type FilterEntry = {
   negated: boolean;
   value?: string;
@@ -119,88 +294,251 @@ type TableState = {
 
 let currentState: TableState = {
   page: 1,
-  filters: {}
+  filters: {},
 };
 
 function serializeFilterValue(fieldName: string, entry: FilterEntry): string | null {
-  const col = (structure.tables[activeTableKey] as TableStructure)?.columns[fieldName];
-  let val: string;
-  if (col?.type === 'number') {
-    val = `${entry.min ?? ''},${entry.max ?? ''}`;
-    if (val === ',') return null;
+  const column = (structure.tables[activeTableKey] as TableStructure).columns[fieldName];
+
+  let value: string;
+
+  if (column?.type === 'number') {
+    value = `${entry.min ?? ''},${entry.max ?? ''}`;
+    if (value === ',') return null;
   } else {
-    val = entry.value ?? '';
-    if (!val) return null;
+    value = entry.value ?? '';
+    if (!value) return null;
   }
-  if (entry.negated) val = '!' + val;
-  return val;
+
+  return entry.negated ? `!${value}` : value;
 }
 
-function syncStateToUrl() {
+function syncStateToUrl(): void {
   const params = new URLSearchParams();
+
   params.set('table', activeTableKey);
   params.set('page', String(currentState.page));
+
   if (currentState.sort) {
     params.set('sort', currentState.sort);
     params.set('dir', currentState.dir || 'asc');
   }
+
   for (const [fieldName, entries] of Object.entries(currentState.filters)) {
     for (const entry of entries) {
-      const val = serializeFilterValue(fieldName, entry);
-      if (val !== null) params.append(`filter_${fieldName}`, val);
+      const value = serializeFilterValue(fieldName, entry);
+
+      if (value !== null) {
+        params.append(`filter_${fieldName}`, value);
+      }
     }
   }
+
   window.history.pushState({}, '', `?${params.toString()}`);
 }
 
-function syncUrlToState() {
+function syncUrlToState(): void {
   const params = new URLSearchParams(window.location.search);
-  const table = params.get('table') as TableKey;
+  const table = params.get('table') as TableKey | null;
+
   if (table && structure.tables[table]) {
     activeTableKey = table;
   }
-  currentState.page = parseInt(params.get('page') || '1');
+
+  currentState.page = Math.max(1, parseInt(params.get('page') || '1', 10) || 1);
   currentState.sort = params.get('sort') || undefined;
-  currentState.dir = (params.get('dir') as 'asc' | 'desc') || undefined;
-
+  currentState.dir = (params.get('dir') as 'asc' | 'desc' | null) || undefined;
   currentState.filters = {};
-  params.forEach((v, k) => {
-    if (!k.startsWith('filter_')) return;
-    const fieldName = k.slice(7);
-    const col = (structure.tables[activeTableKey] as TableStructure)?.columns[fieldName];
-    if (!col) return;
 
-    const strVal = String(v);
-    if (!strVal) return;
+  params.forEach((value, key) => {
+    if (!key.startsWith('filter_')) return;
 
-    const negated = strVal.startsWith('!');
-    const actualVal = negated ? strVal.slice(1) : strVal;
+    const fieldName = key.slice(7);
+    const column = (structure.tables[activeTableKey] as TableStructure).columns[fieldName];
 
+    if (!column || !value) return;
+
+    const negated = value.startsWith('!');
+    const actualValue = negated ? value.slice(1) : value;
     const entry: FilterEntry = { negated };
 
-    if (col.type === 'number') {
-      const commaIdx = actualVal.indexOf(',');
+    if (column.type === 'number') {
+      const commaIdx = actualValue.indexOf(',');
+
       if (commaIdx >= 0) {
-        entry.min = actualVal.slice(0, commaIdx);
-        entry.max = actualVal.slice(commaIdx + 1);
+        entry.min = actualValue.slice(0, commaIdx);
+        entry.max = actualValue.slice(commaIdx + 1);
       } else {
-        entry.min = actualVal;
+        entry.min = actualValue;
       }
     } else {
-      entry.value = actualVal;
+      entry.value = actualValue;
     }
 
-    if (!currentState.filters[fieldName]) {
-      currentState.filters[fieldName] = [];
-    }
+    currentState.filters[fieldName] ??= [];
     currentState.filters[fieldName].push(entry);
   });
 }
 
+function updateNavButtonsText(): void {
+  tableKeys.forEach((key) => {
+    const config = structure.tables[key];
+    const button = tableNavButtons[key];
+
+    button.textContent =
+      getLocalizedText(config.title) || getLocalizedText(config.uiName) || key;
+  });
+}
+
+function createTableNavButtons(): void {
+  for (const key of tableKeys) {
+    const config = structure.tables[key];
+    const button = document.createElement('button');
+
+    button.id = `${key}-btn`;
+    button.textContent =
+      getLocalizedText(config.title) || getLocalizedText(config.uiName) || key;
+
+    button.addEventListener('click', () => showSection(key));
+
+    navContainer.appendChild(button);
+    tableNavButtons[key] = button;
+  }
+}
+
+function resetStateForTable(tableKey: TableKey): void {
+  currentState = {
+    page: 1,
+    filters: {},
+  };
+
+  const config = structure.tables[tableKey];
+  const pkField = Array.isArray(config.pk) ? config.pk[0] : config.pk;
+  const pkColumn = (config.columns as Record<string, ColumnDef>)[pkField];
+
+  if (!pkColumn) return;
+
+  currentState.filters[pkField] = [
+    pkColumn.type === 'number'
+      ? { negated: false, min: '', max: '' }
+      : { negated: false, value: '' },
+  ];
+}
+
+function showSection(section: TableKey, pushState = true): void {
+  if (activeTableKey !== section && pushState) {
+    resetStateForTable(section);
+  }
+
+  activeTableKey = section;
+
+  if (pushState) {
+    syncStateToUrl();
+  }
+
+  Object.entries(tableNavButtons).forEach(([key, button]) => {
+    button.classList.toggle('active', key === section);
+  });
+
+  const tableConfig = structure.tables[section];
+
+  viewTitle.textContent = getLocalizedText(tableConfig.title);
+  addRecordBtn.textContent =
+    getLocalizedText(tableConfig.addButtonLabel) ||
+    `${getLocalizedText(structure.commonText.add)} ${getLocalizedText(tableConfig.uiName)}`;
+
+  hideAnyForm();
+  renderFilters(section);
+  loadTableData(section);
+}
+
 window.addEventListener('popstate', () => {
   syncUrlToState();
-  showSection(activeTableKey, true);
+  showSection(activeTableKey, false);
 });
+
+// -----------------------------------------------------------------------------
+// Menu
+// -----------------------------------------------------------------------------
+
+function renderAnyMenuOption(key: keyof typeof structure.menu): void {
+  const config = structure.menu[key];
+
+  if (!config.options) return;
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'picker-wrapper';
+
+  const label = document.createElement('label');
+  label.htmlFor = config.id;
+  label.textContent = getLocalizedText(config.title);
+
+  const select = document.createElement('select');
+  select.id = config.id;
+  select.classList.add('picker');
+
+  const initialValue =
+    typeof config.initial === 'function' ? config.initial() : config.initial;
+
+  config.options.forEach((option) => {
+    const optionEl = document.createElement('option');
+
+    optionEl.value = option.value;
+    optionEl.textContent = getLocalizedText(option.label);
+
+    if (option.value === initialValue) {
+      optionEl.selected = true;
+    }
+
+    select.appendChild(optionEl);
+  });
+
+  select.addEventListener('change', (event) => {
+    const value = (event.target as HTMLSelectElement).value;
+
+    config.handler(value);
+
+    if (key === 'language' && isLanguage(value)) {
+      setLanguage(value);
+      applyLanguageToUI();
+    }
+  });
+
+  wrapper.appendChild(label);
+  wrapper.appendChild(select);
+  menuContainer.appendChild(wrapper);
+}
+
+function showMenu(): void {
+  menuContainer.innerHTML = '';
+  menuKeys.forEach((key) => renderAnyMenuOption(key));
+}
+
+function applyLanguageToUI(): void {
+  updateNavButtonsText();
+
+  const appTitleEl = document.getElementById('app-title');
+
+  if (appTitleEl) {
+    appTitleEl.textContent = getLocalizedText(structure.commonText.appTitle);
+  }
+
+  showMenu();
+  showSection(activeTableKey, false);
+}
+
+window.addEventListener('languagechange', (event) => {
+  const language = (event as CustomEvent<{ language?: string }>).detail?.language;
+
+  if (isLanguage(language ?? null)) {
+    setLanguage(language as Language);
+    applyLanguageToUI();
+  }
+});
+
+// -----------------------------------------------------------------------------
+// Table rendering
+// -----------------------------------------------------------------------------
 
 const filterContainer = document.createElement('div');
 filterContainer.className = 'filter-container';
@@ -218,235 +556,146 @@ paginationContainer.style.gap = '10px';
 paginationContainer.style.alignItems = 'center';
 sharedTable.parentNode?.insertBefore(paginationContainer, sharedTable.nextSibling);
 
-function getFilterType(column: ColumnDef): 'string' | 'number' | 'enum' {
-  if (column.type === 'number') return 'number';
-  if (column.input === 'select' && column.options) return 'enum';
-  return 'string';
-}
-
-function createFilterControl(entry: FilterEntry, column: ColumnDef, onChange: () => void): HTMLElement {
-  if (column.type === 'number') {
-    const container = document.createElement('div');
-    container.style.display = 'flex';
-    container.style.alignItems = 'center';
-    container.style.gap = '4px';
-
-    const minInput = document.createElement('input');
-    minInput.type = 'number';
-    minInput.placeholder = 'Min';
-    minInput.value = entry.min ?? '';
-    minInput.style.width = '80px';
-    minInput.addEventListener('change', () => {
-      entry.min = minInput.value;
-      onChange();
-    });
-    container.appendChild(minInput);
-
-    const sep = document.createElement('span');
-    sep.textContent = '—';
-    container.appendChild(sep);
-
-    const maxInput = document.createElement('input');
-    maxInput.type = 'number';
-    maxInput.placeholder = 'Max';
-    maxInput.value = entry.max ?? '';
-    maxInput.style.width = '80px';
-    maxInput.addEventListener('change', () => {
-      entry.max = maxInput.value;
-      onChange();
-    });
-    container.appendChild(maxInput);
-    return container;
-  }
-
-  if (column.input === 'select' && column.options) {
-    const sel = document.createElement('select');
-    const blank = document.createElement('option');
-    blank.value = '';
-    blank.textContent = '--';
-    sel.appendChild(blank);
-    for (const opt of column.options) {
-      const o = document.createElement('option');
-      o.value = opt.value;
-      o.textContent = opt.label;
-      if (entry.value === opt.value) o.selected = true;
-      sel.appendChild(o);
-    }
-    sel.addEventListener('change', () => {
-      entry.value = sel.value || undefined;
-      onChange();
-    });
-    return sel;
-  }
-
-  const inp = document.createElement('input');
-  inp.type = 'text';
-  inp.placeholder = 'Filter...';
-  inp.value = entry.value ?? '';
-  inp.style.width = '150px';
-  inp.addEventListener('change', () => {
-    entry.value = inp.value || undefined;
-    onChange();
-  });
-
-
-  inp.addEventListener('keydown', (e) => {
-    if (e.key !== 'Enter') return;
-    e.preventDefault();
-    entry.value = inp.value || undefined;
-    onChange();
-  });
-
-  return inp;
-}
-
-
-function renderFilters<K extends TableKey>(tableKey: K) {
-  filterContainer.innerHTML = '';
+function renderAnyTable<K extends TableKey>(
+  tableKey: K,
+  records: TableRecordMap[K][]
+): void {
+  const thead = sharedTable.querySelector('thead')!;
+  const tbody = sharedTable.querySelector('tbody')!;
   const tableStructure = structure.tables[tableKey];
-  const allColumns = Object.entries(tableStructure.columns);
 
-  const addBar = document.createElement('div');
-  addBar.style.marginBottom = '10px';
-  addBar.style.display = 'flex';
-  addBar.style.gap = '8px';
-  addBar.style.alignItems = 'center';
+  thead.innerHTML = '';
+  tbody.innerHTML = '';
 
-  const addBtn = document.createElement('button');
-  addBtn.textContent = '+ Agregar Filtro / Add Filter';
-  addBtn.className = 'add-btn';
-  addBtn.style.marginBottom = '0';
-  addBar.appendChild(addBtn);
+  const headerRow = document.createElement('tr');
 
-  const addDropdown = document.createElement('select');
-  addDropdown.style.display = 'none';
-  const ph = document.createElement('option');
-  ph.value = '';
-  ph.textContent = '-- Seleccionar columna / Select column --';
-  addDropdown.appendChild(ph);
-  allColumns.forEach(([fieldName, column]) => {
-    const opt = document.createElement('option');
-    opt.value = fieldName;
-    opt.textContent = column.label || fieldName;
-    addDropdown.appendChild(opt);
-  });
-  addBar.appendChild(addDropdown);
+  Object.entries(tableStructure.columns).forEach(([fieldName, column]) => {
+    const th = document.createElement('th');
 
-  addBtn.addEventListener('click', () => {
-    addDropdown.style.display = addDropdown.style.display === 'none' ? 'inline-block' : 'none';
-  });
+    th.textContent = getLocalizedText(column.label as LocalizedText | string) || fieldName;
+    th.className = 'sortable';
+    th.title = 'Click to sort';
 
-  addDropdown.addEventListener('change', () => {
-    const fieldName = addDropdown.value;
-    addDropdown.value = '';
-    addDropdown.style.display = 'none';
-    if (!fieldName) return;
-    const col = (tableStructure.columns as Record<string, ColumnDef>)[fieldName];
-    if (!col) return;
-    const entry: FilterEntry = { negated: false };
-    if (col.type === 'number') { entry.min = ''; entry.max = ''; }
-    else { entry.value = ''; }
-    if (!currentState.filters[fieldName]) currentState.filters[fieldName] = [];
-    currentState.filters[fieldName].push(entry);
-    currentState.page = 1;
-    syncStateToUrl();
-    renderFilters(tableKey);
-    loadTableData(tableKey);
-  });
-
-  filterContainer.appendChild(addBar);
-
-  for (const [fieldName, entries] of Object.entries(currentState.filters)) {
-    for (let idx = 0; idx < entries.length; idx++) {
-      const entry = entries[idx];
-      const column = (tableStructure.columns as Record<string, ColumnDef>)[fieldName];
-      if (!column) continue;
-
-      const row = document.createElement('div');
-      row.className = 'filter-row';
-      if (entry.negated) row.classList.add('negated');
-
-      const colDropdown = document.createElement('select');
-      colDropdown.className = 'filter-col-select';
-      allColumns.forEach(([fn, col]) => {
-        const opt = document.createElement('option');
-        opt.value = fn;
-        opt.textContent = col.label || fn;
-        if (fn === fieldName) opt.selected = true;
-        colDropdown.appendChild(opt);
-      });
-      colDropdown.addEventListener('change', () => {
-        const newField = colDropdown.value;
-        if (newField === fieldName) return;
-        const newCol = (tableStructure.columns as Record<string, ColumnDef>)[newField];
-        if (!newCol) return;
-        const oldType = getFilterType(column);
-        const newType = getFilterType(newCol);
-        if (oldType !== newType) {
-          entry.value = undefined;
-          entry.min = undefined;
-          entry.max = undefined;
-        }
-        if (newCol.type === 'number') {
-          if (entry.value) { entry.min = entry.value; entry.value = undefined; }
-        } else {
-          if (entry.min !== undefined) { entry.value = entry.min; entry.min = undefined; entry.max = undefined; }
-        }
-        if (!currentState.filters[newField]) currentState.filters[newField] = [];
-        currentState.filters[newField].push(entry);
-        currentState.filters[fieldName].splice(idx, 1);
-        if (currentState.filters[fieldName].length === 0) delete currentState.filters[fieldName];
-        currentState.page = 1;
-        syncStateToUrl();
-        renderFilters(tableKey);
-        loadTableData(tableKey);
-      });
-      row.appendChild(colDropdown);
-
-      const onChange = () => {
-        currentState.page = 1;
-        syncStateToUrl();
-        loadTableData(tableKey);
-      };
-
-      row.appendChild(createFilterControl(entry, column, onChange));
-
-      const negBtn = document.createElement('button');
-      negBtn.textContent = 'NOT';
-      negBtn.className = 'negate-btn';
-      if (entry.negated) negBtn.classList.add('active');
-      negBtn.title = 'Toggle negation';
-      negBtn.addEventListener('click', () => {
-        entry.negated = !entry.negated;
-        currentState.page = 1;
-        syncStateToUrl();
-        renderFilters(tableKey);
-        loadTableData(tableKey);
-      });
-      row.appendChild(negBtn);
-
-      const removeBtn = document.createElement('button');
-      removeBtn.textContent = '✕';
-      removeBtn.className = 'remove-filter-btn';
-      removeBtn.title = 'Remove filter';
-      removeBtn.addEventListener('click', () => {
-        currentState.filters[fieldName].splice(idx, 1);
-        if (currentState.filters[fieldName].length === 0) delete currentState.filters[fieldName];
-        currentState.page = 1;
-        syncStateToUrl();
-        renderFilters(tableKey);
-        loadTableData(tableKey);
-      });
-      row.appendChild(removeBtn);
-
-      filterContainer.appendChild(row);
+    if (currentState.sort === fieldName) {
+      th.classList.add(currentState.dir === 'desc' ? 'sorted-desc' : 'sorted-asc');
     }
+
+    th.addEventListener('click', () => {
+      if (currentState.sort === fieldName) {
+        currentState.dir = currentState.dir === 'asc' ? 'desc' : 'asc';
+      } else {
+        currentState.sort = fieldName;
+        currentState.dir = 'asc';
+      }
+
+      currentState.page = 1;
+      syncStateToUrl();
+      loadTableData(tableKey);
+    });
+
+    headerRow.appendChild(th);
+  });
+
+  const actionsHeader = document.createElement('th');
+  actionsHeader.textContent = getLocalizedText(structure.commonText.actions);
+  headerRow.appendChild(actionsHeader);
+  thead.appendChild(headerRow);
+
+  records.forEach((record) => {
+    const pkFields = Array.isArray(tableStructure.pk)
+      ? tableStructure.pk
+      : [tableStructure.pk];
+
+    const row = document.createElement('tr');
+    const columnNames = Object.keys(tableStructure.columns) as Array<
+      keyof TableRecordMap[K] & string
+    >;
+
+    columnNames.forEach((name) => {
+      const td = document.createElement('td');
+      td.textContent = String(record[name] ?? '');
+      row.appendChild(td);
+    });
+
+    const actionsTd = document.createElement('td');
+    actionsTd.className = 'actions';
+
+    const pkValues = pkFields.map((field) =>
+      String(record[field as keyof TableRecordMap[K]] ?? '')
+    );
+
+    const editBtn = document.createElement('button');
+    editBtn.className = 'edit-btn';
+    editBtn.textContent = getLocalizedText(structure.commonText.edit);
+    editBtn.dataset.pk = JSON.stringify(pkValues);
+    editBtn.addEventListener('click', (event) => {
+      const values = JSON.parse((event.currentTarget as HTMLElement).dataset.pk || '[]');
+      window.editRecord(tableKey, ...values);
+    });
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'delete-btn';
+    deleteBtn.textContent = getLocalizedText(structure.commonText.delete);
+    deleteBtn.dataset.pk = JSON.stringify(pkValues);
+    deleteBtn.addEventListener('click', (event) => {
+      const values = JSON.parse((event.currentTarget as HTMLElement).dataset.pk || '[]');
+      window.deleteRecord(tableKey, ...values);
+    });
+
+    actionsTd.appendChild(editBtn);
+    actionsTd.appendChild(deleteBtn);
+    row.appendChild(actionsTd);
+    tbody.appendChild(row);
+  });
+}
+
+async function loadTableData<K extends TableKey>(tableKey: K): Promise<void> {
+  try {
+    const params = new URLSearchParams();
+
+    params.set('page', String(currentState.page));
+
+    if (currentState.sort) {
+      params.set('sort', currentState.sort);
+      params.set('dir', currentState.dir || 'asc');
+    }
+
+    for (const [fieldName, entries] of Object.entries(currentState.filters)) {
+      for (const entry of entries) {
+        const value = serializeFilterValue(fieldName, entry);
+
+        if (value !== null) {
+          params.append(`filter_${fieldName}`, value);
+        }
+      }
+    }
+
+    const response = await fetch(`${API_BASE}/${tableKey}?${params.toString()}`);
+    const result = await response.json();
+
+    if (!response.ok) {
+      return showErrorMessage(result.message ?? result.error ?? 'Error loading data');
+    }
+
+    const data = (result.data ?? []) as TableRecordMap[K][];
+    const total = Number(result.total ?? data.length);
+
+    renderAnyTable(tableKey, data);
+    renderPagination(total);
+
+    if (result.message) {
+      showSuccessMessage(result.message);
+    }
+  } catch (error) {
+    console.error(`Error loading ${tableKey}:`, error);
+    alert('Error al cargar datos / Error loading data');
   }
 }
 
-function renderPagination(total: number) {
+function renderPagination(total: number): void {
   paginationContainer.innerHTML = '';
-  const totalPages = Math.ceil(total / 20) || 1;
+
+  const totalPages = Math.ceil(total / PAGE_SIZE) || 1;
 
   const info = document.createElement('span');
   info.textContent = `Página ${currentState.page} de ${totalPages} (Total: ${total})`;
@@ -477,210 +726,383 @@ function renderPagination(total: number) {
   paginationContainer.appendChild(nextBtn);
 }
 
-function showSection(section: TableKey, pushState = true) {
-  if (activeTableKey !== section && pushState) {
-    currentState = { page: 1, filters: {} };
-    const cfg = structure.tables[section];
-    const pkField = Array.isArray(cfg.pk) ? cfg.pk[0] : cfg.pk;
-    const pkCol = (cfg.columns as Record<string, ColumnDef>)[pkField];
-    if (pkCol) {
-      const entry: FilterEntry = { negated: false };
-      if (pkCol.type === 'number') { entry.min = ''; entry.max = ''; }
-      else { entry.value = ''; }
-      currentState.filters[pkField] = [entry];
-    }
+// -----------------------------------------------------------------------------
+// Filters
+// -----------------------------------------------------------------------------
+
+function getFilterType(column: ColumnDef): 'string' | 'number' | 'enum' {
+  if (column.type === 'number') return 'number';
+  if (column.input === 'select' && column.options) return 'enum';
+  return 'string';
+}
+
+function createFilterControl(
+  entry: FilterEntry,
+  column: ColumnDef,
+  onChange: () => void
+): HTMLElement {
+  if (column.type === 'number') {
+    const container = document.createElement('div');
+    container.style.display = 'flex';
+    container.style.alignItems = 'center';
+    container.style.gap = '4px';
+
+    const minInput = document.createElement('input');
+    minInput.type = 'number';
+    minInput.placeholder = 'Min';
+    minInput.value = entry.min ?? '';
+    minInput.style.width = '80px';
+    minInput.addEventListener('change', () => {
+      entry.min = minInput.value;
+      onChange();
+    });
+
+    const separator = document.createElement('span');
+    separator.textContent = '—';
+
+    const maxInput = document.createElement('input');
+    maxInput.type = 'number';
+    maxInput.placeholder = 'Max';
+    maxInput.value = entry.max ?? '';
+    maxInput.style.width = '80px';
+    maxInput.addEventListener('change', () => {
+      entry.max = maxInput.value;
+      onChange();
+    });
+
+    container.appendChild(minInput);
+    container.appendChild(separator);
+    container.appendChild(maxInput);
+
+    return container;
   }
-  activeTableKey = section;
 
-  if (pushState) syncStateToUrl();
+  if (column.input === 'select' && column.options) {
+    const select = document.createElement('select');
 
-  Object.entries(tableNavButtons).forEach(([key, button]) => {
-    button.classList.toggle('active', key === section);
+    const blank = document.createElement('option');
+    blank.value = '';
+    blank.textContent = '--';
+    select.appendChild(blank);
+
+    for (const option of column.options) {
+      const optionEl = document.createElement('option');
+
+      optionEl.value = option.value;
+      optionEl.textContent = getLocalizedText(option.label as LocalizedText | string);
+
+      if (entry.value === option.value) {
+        optionEl.selected = true;
+      }
+
+      select.appendChild(optionEl);
+    }
+
+    select.addEventListener('change', () => {
+      entry.value = select.value || undefined;
+      onChange();
+    });
+
+    return select;
+  }
+
+  const input = document.createElement('input');
+
+  input.type = 'text';
+  input.placeholder = 'Filter...';
+  input.value = entry.value ?? '';
+  input.style.width = '150px';
+
+  input.addEventListener('change', () => {
+    entry.value = input.value || undefined;
+    onChange();
   });
 
-  const tableConfig = structure.tables[section];
-  viewTitle.textContent = tableConfig.title ?? '';
-  addRecordBtn.textContent = tableConfig.addButtonLabel || `Agregar ${tableConfig.uiName} / Add ${tableConfig.uiName}`;
-  hideAnyForm();
-  renderFilters(section);
-  loadTableData(section);
+  input.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter') return;
+
+    event.preventDefault();
+    entry.value = input.value || undefined;
+    onChange();
+  });
+
+  return input;
 }
 
-//Load 
-async function loadTableData<K extends TableKey>(tableKey: K) {
-  try {
-    const params = new URLSearchParams();
+function renderFilters<K extends TableKey>(tableKey: K): void {
+  filterContainer.innerHTML = '';
 
-    params.set('page', String(currentState.page));
-
-    if (currentState.sort) {
-      params.set('sort', currentState.sort);
-      params.set('dir', currentState.dir || 'asc');
-    }
-
-    for (const [fieldName, entries] of Object.entries(currentState.filters)) {
-      for (const entry of entries) {
-        const val = serializeFilterValue(fieldName, entry);
-        if (val !== null) {
-          params.append(`filter_${fieldName}`, val);
-        }
-      }
-    }
-
-    const queryString = params.toString();
-    const response = await fetch(`${API_BASE}/${tableKey}?${queryString}`);
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      return showErrorMessage(result.message ?? result.error ?? 'Error loading data');
-    }
-
-    const data = result.data as TableRecordMap[K][];
-    const total = Number(result.total ?? data.length);
-
-    renderAnyTable(tableKey, data);
-    renderPagination(total);
-
-    if (result.message) {
-      showSuccessMessage(result.message);
-    }
-  } catch (error) {
-    console.error(`Error loading ${tableKey}:`, error);
-    alert('Error al cargar datos / Error loading data');
-  }
-}
-
-function renderAnyTable<K extends TableKey>(tableKey: K, records: TableRecordMap[K][]) {
-  const thead = sharedTable.querySelector('thead')!;
-  const tbody = sharedTable.querySelector('tbody')!;
   const tableStructure = structure.tables[tableKey];
-  thead.innerHTML = '';
-  tbody.innerHTML = '';
+  const allColumns = Object.entries(tableStructure.columns);
 
-  const headerRow = document.createElement('tr');
-  Object.entries(tableStructure.columns).forEach(([fieldName, column]) => {
-    const th = document.createElement('th');
-    th.textContent = column.label || fieldName;
-    th.className = 'sortable';
-    th.title = 'Click to sort';
+  const addBar = document.createElement('div');
+  addBar.style.marginBottom = '10px';
+  addBar.style.display = 'flex';
+  addBar.style.gap = '8px';
+  addBar.style.alignItems = 'center';
 
-    if (currentState.sort === fieldName) {
-      th.classList.add(currentState.dir === 'desc' ? 'sorted-desc' : 'sorted-asc');
-    }
+  const addBtn = document.createElement('button');
+  addBtn.textContent = '+ Agregar Filtro / Add Filter';
+  addBtn.className = 'add-btn';
+  addBtn.style.marginBottom = '0';
 
-    th.addEventListener('click', () => {
-      if (currentState.sort === fieldName) {
-        currentState.dir = currentState.dir === 'asc' ? 'desc' : 'asc';
-      } else {
-        currentState.sort = fieldName;
-        currentState.dir = 'asc';
+  const addDropdown = document.createElement('select');
+  addDropdown.style.display = 'none';
+
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = '-- Seleccionar columna / Select column --';
+  addDropdown.appendChild(placeholder);
+
+  allColumns.forEach(([fieldName, column]) => {
+    const option = document.createElement('option');
+
+    option.value = fieldName;
+    option.textContent =
+      getLocalizedText(column.label as LocalizedText | string) || fieldName;
+
+    addDropdown.appendChild(option);
+  });
+
+  addBtn.addEventListener('click', () => {
+    addDropdown.style.display =
+      addDropdown.style.display === 'none' ? 'inline-block' : 'none';
+  });
+
+  addDropdown.addEventListener('change', () => {
+    const fieldName = addDropdown.value;
+
+    addDropdown.value = '';
+    addDropdown.style.display = 'none';
+
+    if (!fieldName) return;
+
+    const column = (tableStructure.columns as Record<string, ColumnDef>)[fieldName];
+
+    if (!column) return;
+
+    const entry: FilterEntry =
+      column.type === 'number'
+        ? { negated: false, min: '', max: '' }
+        : { negated: false, value: '' };
+
+    currentState.filters[fieldName] ??= [];
+    currentState.filters[fieldName].push(entry);
+    currentState.page = 1;
+
+    syncStateToUrl();
+    renderFilters(tableKey);
+    loadTableData(tableKey);
+  });
+
+  addBar.appendChild(addBtn);
+  addBar.appendChild(addDropdown);
+  filterContainer.appendChild(addBar);
+
+  for (const [fieldName, entries] of Object.entries(currentState.filters)) {
+    entries.forEach((entry, idx) => {
+      const column = (tableStructure.columns as Record<string, ColumnDef>)[fieldName];
+
+      if (!column) return;
+
+      const row = document.createElement('div');
+      row.className = 'filter-row';
+
+      if (entry.negated) {
+        row.classList.add('negated');
       }
-      currentState.page = 1;
-      syncStateToUrl();
-      loadTableData(tableKey);
+
+      const columnDropdown = document.createElement('select');
+      columnDropdown.className = 'filter-col-select';
+
+      allColumns.forEach(([candidateFieldName, candidateColumn]) => {
+        const option = document.createElement('option');
+
+        option.value = candidateFieldName;
+        option.textContent =
+          getLocalizedText(candidateColumn.label as LocalizedText | string) ||
+          candidateFieldName;
+
+        if (candidateFieldName === fieldName) {
+          option.selected = true;
+        }
+
+        columnDropdown.appendChild(option);
+      });
+
+      columnDropdown.addEventListener('change', () => {
+        const newField = columnDropdown.value;
+
+        if (newField === fieldName) return;
+
+        const newColumn = (tableStructure.columns as Record<string, ColumnDef>)[newField];
+
+        if (!newColumn) return;
+
+        const oldType = getFilterType(column);
+        const newType = getFilterType(newColumn);
+
+        if (oldType !== newType) {
+          entry.value = undefined;
+          entry.min = undefined;
+          entry.max = undefined;
+        }
+
+        if (newColumn.type === 'number') {
+          if (entry.value) {
+            entry.min = entry.value;
+            entry.value = undefined;
+          }
+        } else if (entry.min !== undefined) {
+          entry.value = entry.min;
+          entry.min = undefined;
+          entry.max = undefined;
+        }
+
+        currentState.filters[newField] ??= [];
+        currentState.filters[newField].push(entry);
+        currentState.filters[fieldName].splice(idx, 1);
+
+        if (currentState.filters[fieldName].length === 0) {
+          delete currentState.filters[fieldName];
+        }
+
+        currentState.page = 1;
+
+        syncStateToUrl();
+        renderFilters(tableKey);
+        loadTableData(tableKey);
+      });
+
+      const onChange = () => {
+        currentState.page = 1;
+        syncStateToUrl();
+        loadTableData(tableKey);
+      };
+
+      const negBtn = document.createElement('button');
+      negBtn.textContent = 'NOT';
+      negBtn.className = 'negate-btn';
+      negBtn.title = 'Toggle negation';
+
+      if (entry.negated) {
+        negBtn.classList.add('active');
+      }
+
+      negBtn.addEventListener('click', () => {
+        entry.negated = !entry.negated;
+        currentState.page = 1;
+
+        syncStateToUrl();
+        renderFilters(tableKey);
+        loadTableData(tableKey);
+      });
+
+      const removeBtn = document.createElement('button');
+      removeBtn.textContent = '✕';
+      removeBtn.className = 'remove-filter-btn';
+      removeBtn.title = 'Remove filter';
+      removeBtn.addEventListener('click', () => {
+        currentState.filters[fieldName].splice(idx, 1);
+
+        if (currentState.filters[fieldName].length === 0) {
+          delete currentState.filters[fieldName];
+        }
+
+        currentState.page = 1;
+
+        syncStateToUrl();
+        renderFilters(tableKey);
+        loadTableData(tableKey);
+      });
+
+      row.appendChild(columnDropdown);
+      row.appendChild(createFilterControl(entry, column, onChange));
+      row.appendChild(negBtn);
+      row.appendChild(removeBtn);
+      filterContainer.appendChild(row);
     });
-
-    headerRow.appendChild(th);
-  });
-
-  const actionsHeader = document.createElement('th');
-  actionsHeader.textContent = 'Acciones / Actions';
-  headerRow.appendChild(actionsHeader);
-  thead.appendChild(headerRow);
-
-  records.forEach((record) => {
-    const { pk } = tableStructure;
-    const pkFields = Array.isArray(pk) ? pk : [pk];
-    const row = document.createElement('tr');
-    const columnNames = Object.keys(tableStructure.columns) as Array<keyof TableRecordMap[K] & string>;
-
-    // create data cells
-    columnNames.forEach((name) => {
-      const td = document.createElement('td');
-      td.textContent = String(record[name] ?? '');
-      row.appendChild(td);
-    });
-
-    // actions cell with event listeners (avoid inline onclick/double-encoding)
-    const actionsTd = document.createElement('td');
-    actionsTd.className = 'actions';
-
-    const editBtn = document.createElement('button');
-    editBtn.className = 'edit-btn';
-    editBtn.textContent = 'Editar / Edit';
-    editBtn.dataset.table = String(tableKey);
-    editBtn.dataset.pk = JSON.stringify(pkFields.map((field) => String(record[field as keyof TableRecordMap[K]] ?? '')));
-    editBtn.addEventListener('click', (e) => {
-      const pkValues = JSON.parse((e.currentTarget as HTMLElement).dataset.pk || '[]');
-      window.editRecord(tableKey, ...pkValues);
-    });
-
-    const deleteBtn = document.createElement('button');
-    deleteBtn.className = 'delete-btn';
-    deleteBtn.textContent = 'Eliminar / Delete';
-    deleteBtn.dataset.table = String(tableKey);
-    deleteBtn.dataset.pk = editBtn.dataset.pk;
-    deleteBtn.addEventListener('click', (e) => {
-      const pkValues = JSON.parse((e.currentTarget as HTMLElement).dataset.pk || '[]');
-      window.deleteRecord(tableKey, ...pkValues);
-    });
-
-    actionsTd.appendChild(editBtn);
-    actionsTd.appendChild(deleteBtn);
-    row.appendChild(actionsTd);
-
-    tbody.appendChild(row);
-  });
+  }
 }
 
+// -----------------------------------------------------------------------------
+// Form logic
+// -----------------------------------------------------------------------------
 
 addRecordBtn.addEventListener('click', () => showAnyForm(activeTableKey));
-
 
 function getFieldElementId(tableKey: TableKey, fieldName: string): string {
   return `${tableKey}-${fieldName}`;
 }
 
 function coerceFieldValue(column: ColumnDef, rawValue: string): unknown {
-  if (column.type === 'number') return rawValue === '' ? null : Number(rawValue);
+  if (column.type === 'number') {
+    return rawValue === '' ? null : Number(rawValue);
+  }
+
   return rawValue;
 }
 
-function showFieldValidation(tableKey: TableKey, fieldName: string, column: ColumnDef): string | undefined {
+function showFieldValidation(
+  tableKey: TableKey,
+  fieldName: string,
+  column: ColumnDef
+): string | undefined {
   const id = getFieldElementId(tableKey, fieldName);
-  const element = document.getElementById(id) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null;
+  const element = document.getElementById(id) as
+    | HTMLInputElement
+    | HTMLTextAreaElement
+    | HTMLSelectElement
+    | null;
+
   const errorEl = document.getElementById(`${id}-error`);
-  const message = validateField(tableKey, fieldName, coerceFieldValue(column, element?.value ?? ''));
-  if (errorEl) errorEl.textContent = message ?? '';
+  const message = validateField(
+    tableKey,
+    fieldName,
+    coerceFieldValue(column, element?.value ?? '')
+  );
+
+  if (errorEl) {
+    errorEl.textContent = message ?? '';
+  }
+
   element?.classList.toggle('invalid', !!message);
+
   return message;
 }
 
 function validateForm<K extends TableKey>(tableKey: K): boolean {
   return Object.entries(structure.tables[tableKey].columns)
     .filter(([, column]) => column.editable !== false)
-    .map(([fieldName, column]) => showFieldValidation(tableKey, fieldName, column as ColumnDef))
+    .map(([fieldName, column]) => showFieldValidation(tableKey, fieldName, column))
     .every((message) => !message);
 }
 
-
-async function renderFormField<K extends TableKey>(tableKey: K, fieldName: keyof TableRecordMap[K] & string, column: ColumnDef, record?: Partial<TableRecordMap[K]>, isEdit = false): Promise<HTMLElement> {
+async function renderFormField<K extends TableKey>(
+  tableKey: K,
+  fieldName: keyof TableRecordMap[K] & string,
+  column: ColumnDef,
+  record?: Partial<TableRecordMap[K]>,
+  isEdit = false
+): Promise<HTMLElement> {
   const id = getFieldElementId(tableKey, fieldName);
-  const labelText = column.label ?? '';
   const wrapper = document.createElement('div');
+
   wrapper.className = 'form-group';
 
   const labelEl = document.createElement('label');
   labelEl.htmlFor = id;
-  labelEl.textContent = labelText;
+  labelEl.textContent =
+    getLocalizedText(column.label as LocalizedText | string) || fieldName;
+
   wrapper.appendChild(labelEl);
-  const rendererKey = mapInputToRenderer(column.input);
-  const renderer = getRenderer<K>(rendererKey);
 
   await loadDefaultOptions(column);
 
+  const rendererKey = mapInputToRenderer(column.input);
+  const renderer = getRenderer<K>(rendererKey);
   const inputEl = renderer({ id, fieldName, column, record, isEdit });
+
   wrapper.appendChild(inputEl);
 
   const errorEl = document.createElement('small');
@@ -688,124 +1110,138 @@ async function renderFormField<K extends TableKey>(tableKey: K, fieldName: keyof
   errorEl.id = `${id}-error`;
   wrapper.appendChild(errorEl);
 
-  // Validate on blur, then keep the message live once the field has been flagged.
-  inputEl.addEventListener('blur', () => showFieldValidation(tableKey, fieldName, column));
-  inputEl.addEventListener('input', () => { if (errorEl.textContent) showFieldValidation(tableKey, fieldName, column); });
+  inputEl.addEventListener('blur', () => {
+    showFieldValidation(tableKey, fieldName, column);
+  });
+
+  inputEl.addEventListener('input', () => {
+    if (errorEl.textContent) {
+      showFieldValidation(tableKey, fieldName, column);
+    }
+  });
 
   return wrapper;
 }
 
-// loads selection options if the col values are given by a fk that doesn't depend on anybody else
-async function loadDefaultOptions(column: ColumnDef) {
+function getForeignKeyLabel(row: Record<string, unknown>, foreignKey: ForeignKeyDef): string {
+  const labelField = foreignKey.labelField;
 
-  if (column.foreignKey) {
-    
-    const fk = column.foreignKey;
-
-    if (!fk.dependsOn) {
-      const response = await fetch(`${API_BASE}/${fk.table}`);
-      const rows = await response.json();
-      column.options = rows.map((row: any) => ({
-        value: row[fk.valueField],
-        label: `${row[fk.valueField]} - ${row[fk.labelField]}`
-      }));
-    }
-    
+  if (row[labelField] != null) {
+    return String(row[labelField]);
   }
 
+  // Supports simple SQL-like labels such as:
+  // first_name || ' ' || last_name
+  if (labelField.includes('||')) {
+    return labelField
+      .split('||')
+      .map((part) => part.trim())
+      .map((part) => {
+        const quoted = part.match(/^['"](.*)['"]$/);
+        if (quoted) return quoted[1];
+
+        return String(row[part] ?? '');
+      })
+      .join('');
+  }
+
+  return String(row[foreignKey.valueField] ?? '');
+}
+
+async function loadDefaultOptions(column: ColumnDef): Promise<void> {
+  const foreignKey = column.foreignKey;
+
+  if (!foreignKey || foreignKey.dependsOn) return;
+
+  const rows = await fetchRows(`${API_BASE}/${foreignKey.table}?page=1`);
+
+  column.options = rows.map((row) => {
+    const record = row as Record<string, unknown>;
+    const value = String(record[foreignKey.valueField] ?? '');
+
+    return {
+      value,
+      label: `${value} - ${getForeignKeyLabel(record, foreignKey)}`,
+    };
+  }) as any;
 }
 
 function setupDependentSelects<K extends TableKey>(
   tableKey: K,
-  record?: Partial<TableRecordMap[K]> 
-) {
+  record?: Partial<TableRecordMap[K]>
+): void {
   const tableConfig = structure.tables[tableKey];
+
   for (const [fieldName, column] of Object.entries(tableConfig.columns)) {
-    
-    if (!column.foreignKey?.dependsOn) continue;
-    
-    const fk = column.foreignKey;
+    const foreignKey = column.foreignKey;
+
+    if (!foreignKey?.dependsOn) continue;
+
     const childId = getFieldElementId(tableKey, fieldName);
-    const parentId = getFieldElementId(tableKey, fk.dependsOn.field);
+    const parentId = getFieldElementId(tableKey, foreignKey.dependsOn.field);
     const childSelect = document.getElementById(childId) as HTMLSelectElement | null;
     const parentSelect = document.getElementById(parentId) as HTMLSelectElement | null;
 
-    if (!childSelect || !parentSelect) {console.log("childSelect or parentSelect didnt render"); continue;}
+    if (!childSelect || !parentSelect) continue;
 
-    // first load
-    loadDependentOptions(parentSelect, childSelect, fk as ForeignKeyDef,  fieldName as keyof TableRecordMap[K], record);
-    
-    
-    parentSelect.addEventListener(
-      'change',
-       () => loadDependentOptions(parentSelect, childSelect, fk as ForeignKeyDef,  fieldName as keyof TableRecordMap[K], record)
+    loadDependentOptions(
+      parentSelect,
+      childSelect,
+      foreignKey,
+      fieldName as keyof TableRecordMap[K],
+      record
     );
 
+    parentSelect.addEventListener('change', () => {
+      loadDependentOptions(
+        parentSelect,
+        childSelect,
+        foreignKey,
+        fieldName as keyof TableRecordMap[K],
+        record
+      );
+    });
   }
 }
 
-
-// loads select options for a fk column whose values depend on another fk
-async function loadDependentOptions<K extends TableKey>(parentSelect: HTMLSelectElement, childSelect: HTMLSelectElement, fk: ForeignKeyDef, 
+async function loadDependentOptions<K extends TableKey>(
+  parentSelect: HTMLSelectElement,
+  childSelect: HTMLSelectElement,
+  foreignKey: ForeignKeyDef,
   fieldName: keyof TableRecordMap[K],
-  record?: Partial<TableRecordMap[K]> 
-) {
+  record?: Partial<TableRecordMap[K]>
+): Promise<void> {
+  if (!foreignKey.dependsOn) return;
 
-      if (!fk.dependsOn) return; 
+  const parentValue = parentSelect.value;
 
-      const value = parentSelect.value;
-      childSelect.innerHTML = '';
-      
-      if (!value) {console.log("parentSelect empty"); return;}
-      
-      console.log("fetching");
-      
-      const response = await fetch(
-        `${API_BASE}/${fk.table}?${fk.dependsOn.foreignField}=${encodeURIComponent(value)}`
-      );
+  childSelect.innerHTML = '';
 
-      const rows = await response.json();
+  if (!parentValue) return;
 
-      rows.forEach((row: any) => {
-        const option = document.createElement('option');
-        option.value = row[fk.valueField];
-        option.textContent = `${row[fk.valueField]} - ${row[fk.labelField]}`;
-        childSelect.appendChild(option);
-      });
+  try {
+    const rows = await fetchRows(
+      `${API_BASE}/${foreignKey.table}?filter_${foreignKey.dependsOn.foreignField}=${encodeURIComponent(parentValue)}`
+    );
 
-      // si estamos en modo edit, restauramos el valor del record
-      const currentValue = record?.[fieldName as keyof TableRecordMap[K]];
-      if (currentValue != null) {
-        childSelect.value = String(currentValue);
-      }
+    rows.forEach((row) => {
+      const recordRow = row as Record<string, unknown>;
+      const value = String(recordRow[foreignKey.valueField] ?? '');
 
-    
-}
-
-function collectFormData<K extends TableKey>(tableKey: K): Partial<TableRecordMap[K]> {
-  const tableConfig = structure.tables[tableKey];
-  const payload: Partial<TableRecordMap[K]> = {};
-
-  Object.entries(tableConfig.columns)
-    .filter(([, column]) => column.editable !== false)
-    .forEach(([fieldName, column]) => {
-      const id = getFieldElementId(tableKey, fieldName);
-      const element = document.getElementById(id) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null;
-      // Empty number -> null (not 0), so the server can tell "cleared" from a real value.
-      payload[fieldName as keyof TableRecordMap[K]] =
-        coerceFieldValue(column, element?.value ?? '') as TableRecordMap[K][keyof TableRecordMap[K]];
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = `${value} - ${getForeignKeyLabel(recordRow, foreignKey)}`;
+      childSelect.appendChild(option);
     });
 
-  return payload;
-}
+    const currentValue = record?.[fieldName];
 
-function getRecordPath(recordValues: string[]): string {
-  return `/${recordValues.map((value) => encodeURIComponent(value)).join('/')}`;
-}
-
-function hideAnyForm(): void {
-  formContainer.style.display = 'none';
-  formContainer.innerHTML = '';
+    if (currentValue != null) {
+      childSelect.value = String(currentValue);
+    }
+  } catch (error) {
+    console.error('Error loading dependent options:', error);
+  }
 }
 
 async function resolveDependingForeignKeys<K extends TableKey>(
@@ -813,64 +1249,139 @@ async function resolveDependingForeignKeys<K extends TableKey>(
   record?: Partial<TableRecordMap[K]>
 ): Promise<void> {
   if (!record) return;
+
   const tableConfig = structure.tables[tableKey];
+
   for (const [fieldName, column] of Object.entries(tableConfig.columns)) {
-    const fk = column.foreignKey;
-    if (!fk?.dependsOn) continue;
+    const foreignKey = column.foreignKey;
 
-    const childField   = fieldName;
-    const parentField  = fk.dependsOn.field;
-    const foreignField = fk.dependsOn.foreignField;
+    if (!foreignKey?.dependsOn) continue;
 
-    const childValue = (record as any)[childField];
+    const childValue = (record as Record<string, unknown>)[fieldName];
+
     if (childValue == null) continue;
 
-    const url = `${API_BASE}/${fk.table}/${encodeURIComponent(childValue)}`;
-    const row = await fetch(url).then(r => r.json());
+    try {
+      const queryParams = new URLSearchParams([
+        [foreignKey.valueField, String(childValue)],
+      ]).toString();
 
-    (record as any)[parentField] = row[foreignField];
+      const response = await fetch(`${API_BASE}/${foreignKey.table}?${queryParams}`);
+
+      if (!response.ok) continue;
+
+      const responseJson: ApiResponse = await response.json();
+      const foreignRecord = responseJson.data as Record<string, unknown> | undefined;
+
+      if (!foreignRecord) continue;
+
+      (record as Record<string, unknown>)[foreignKey.dependsOn.field] =
+        foreignRecord[foreignKey.dependsOn.foreignField];
+    } catch (error) {
+      console.error('Error resolving dependent foreign key:', error);
+    }
   }
 }
 
-async function showAnyForm<K extends TableKey>(tableKey: K, record?: Partial<TableRecordMap[K]>): Promise<void> {
+function collectFormData<K extends TableKey>(
+  tableKey: K
+): Partial<TableRecordMap[K]> {
+  const tableConfig = structure.tables[tableKey];
+  const payload: Partial<TableRecordMap[K]> = {};
+
+  Object.entries(tableConfig.columns)
+    .filter(([, column]) => column.editable !== false)
+    .forEach(([fieldName, column]) => {
+      const id = getFieldElementId(tableKey, fieldName);
+      const element = document.getElementById(id) as
+        | HTMLInputElement
+        | HTMLTextAreaElement
+        | HTMLSelectElement
+        | null;
+
+      payload[fieldName as keyof TableRecordMap[K]] = coerceFieldValue(
+        column,
+        element?.value ?? ''
+      ) as TableRecordMap[K][keyof TableRecordMap[K]];
+    });
+
+  return payload;
+}
+
+export function getRecordPath(recordValues: string[]): string {
+  return `/${recordValues.map((value) => encodeURIComponent(value)).join('/')}`;
+}
+
+export function hideAnyForm(): void {
+  formContainer.style.display = 'none';
+  formContainer.innerHTML = '';
+}
+
+async function showAnyForm<K extends TableKey>(
+  tableKey: K,
+  record?: Partial<TableRecordMap[K]>
+): Promise<void> {
   const tableConfig = structure.tables[tableKey];
   const isEdit = !!record;
   const formId = `${tableKey}-form`;
-   
-  resolveDependingForeignKeys(tableKey, record)
 
-  const fields = await Promise.all(Object.entries(tableConfig.columns)
-  .filter(([, column]) => column.editable !== false)
-  .map(([fieldName, column]) => renderFormField(tableKey, fieldName as keyof TableRecordMap[K] & string, column, record, isEdit)));
+  await resolveDependingForeignKeys(tableKey, record);
 
-  // build form DOM
+  const fields = await Promise.all(
+    Object.entries(tableConfig.columns)
+      .filter(([, column]) => column.editable !== false)
+      .map(([fieldName, column]) =>
+        renderFormField(
+          tableKey,
+          fieldName as keyof TableRecordMap[K] & string,
+          column,
+          record,
+          isEdit
+        )
+      )
+  );
+
   formContainer.innerHTML = '';
+
   const form = document.createElement('form');
   form.id = formId;
-  const h3 = document.createElement('h3');
-  h3.textContent = isEdit ? `Editar ${tableConfig.uiName} / Edit ${tableConfig.uiName}` : `Agregar ${tableConfig.uiName} / Add ${tableConfig.uiName}`;
-  form.appendChild(h3);
-  fields.forEach((f) => form.appendChild(f));
+
+  const title = document.createElement('h3');
+  title.textContent = `${
+    isEdit
+      ? getLocalizedText(structure.commonText.edit)
+      : getLocalizedText(structure.commonText.add)
+  } ${getLocalizedText(tableConfig.uiName)}`;
+  form.appendChild(title);
+
+  fields.forEach((field) => form.appendChild(field));
 
   const actionsDiv = document.createElement('div');
   actionsDiv.className = 'form-actions';
+
   const submitBtn = document.createElement('button');
   submitBtn.type = 'submit';
-  submitBtn.textContent = isEdit ? 'Actualizar / Update' : 'Agregar / Add';
+  submitBtn.textContent = isEdit
+    ? getLocalizedText(structure.commonText.update)
+    : getLocalizedText(structure.commonText.add);
+
   const cancelBtn = document.createElement('button');
   cancelBtn.type = 'button';
   cancelBtn.className = 'cancel-btn';
-  cancelBtn.textContent = 'Cancelar / Cancel';
+  cancelBtn.textContent = getLocalizedText(structure.commonText.cancel);
   cancelBtn.addEventListener('click', hideAnyForm);
+
   actionsDiv.appendChild(submitBtn);
   actionsDiv.appendChild(cancelBtn);
   form.appendChild(actionsDiv);
 
   formContainer.appendChild(form);
-  formContainer.style.display = 'block';
+  formContainer.style.display = 'flex';
 
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
+  setupDependentSelects(tableKey, record);
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
 
     if (!validateForm(tableKey)) return;
 
@@ -905,54 +1416,47 @@ async function showAnyForm<K extends TableKey>(tableKey: K, record?: Partial<Tab
       }
 
       showSuccessMessage(responseJson.message ?? '');
-
       hideAnyForm();
       loadTableData(tableKey);
     } catch (error) {
-      console.error(`Error saving ${tableConfig.uiName.toLowerCase()}:`, error);
+      console.error(
+        `Error saving ${getLocalizedText(tableConfig.uiName).toLowerCase()}:`,
+        error
+      );
       alert('No se pudo conectar con el servidor / Could not reach the server');
     }
   });
-
-  setupDependentSelects(tableKey, record); //después de crear el dom ponemos los listeners entre selects, record va a tener data si esto es un campo de edit
-
 }
 
-async function errorMessage(response: globalThis.Response): Promise<string> {
-  try {
-    const body = await response.json();
-
-    if (body && typeof body.message === 'string') return body.message;
-    if (body && typeof body.error === 'string') return body.error;
-
-    if (body && Array.isArray(body.errors)) {
-      return body.errors.join('\n');
-    }
-  } catch {
-    // response body was not JSON
-  }
-
-  return `Error ${response.status}`;
-}
+// -----------------------------------------------------------------------------
+// Global actions
+// -----------------------------------------------------------------------------
 
 declare global {
   interface Window {
     hideAnyForm: () => void;
-    editRecord: <K extends TableKey>(tableKey: K, ...pkValues: string[]) => Promise<void>;
-    deleteRecord: <K extends TableKey>(tableKey: K, ...pkValues: string[]) => Promise<void>;
+    editRecord: <K extends TableKey>(
+      tableKey: K,
+      ...pkValues: string[]
+    ) => Promise<void>;
+    deleteRecord: <K extends TableKey>(
+      tableKey: K,
+      ...pkValues: string[]
+    ) => Promise<void>;
   }
 }
 
-// Global functions for onclick
 window.hideAnyForm = hideAnyForm;
 
-
-window.editRecord = async <K extends TableKey>(tableKey: K, ...pkValues: string[]) => {
+window.editRecord = async <K extends TableKey>(
+  tableKey: K,
+  ...pkValues: string[]
+) => {
   try {
     const queryParams = new URLSearchParams(
       getPkFields(tableKey).map((pkFieldName, index) => [
         pkFieldName,
-        pkValues[index],
+        pkValues[index] ?? '',
       ])
     ).toString();
 
@@ -977,103 +1481,65 @@ window.editRecord = async <K extends TableKey>(tableKey: K, ...pkValues: string[
     alert('No se pudo conectar con el servidor / Could not reach the server');
   }
 };
-window.deleteRecord = async <K extends TableKey>(tableKey: K, ...pkValues: string[]) => {
+
+window.deleteRecord = async <K extends TableKey>(
+  tableKey: K,
+  ...pkValues: string[]
+) => {
   const tableConfig = structure.tables[tableKey];
+  const entityName = getLocalizedText(tableConfig.uiName).toLowerCase();
 
-  if (confirm(`¿Está seguro de que desea eliminar este ${tableConfig.uiName.toLowerCase()}? / Are you sure you want to delete this ${tableConfig.uiName.toLowerCase()}?`)) {
-    try {
-      const queryParams = new URLSearchParams(
-        getPkFields(tableKey).map((pkFieldName, index) => [
-          pkFieldName,
-          pkValues[index],
-        ])
-      ).toString();
+  const confirmed = confirm(
+    `¿Está seguro de que desea eliminar este ${entityName}? / Are you sure you want to delete this ${entityName}?`
+  );
 
-      const response = await fetch(`${API_BASE}/${tableKey}?${queryParams}`, {
-        method: 'DELETE',
-      });
+  if (!confirmed) return;
 
-      if (!response.ok) {
-        return showErrorMessage(await errorMessage(response));
-      }
+  try {
+    const queryParams = new URLSearchParams(
+      getPkFields(tableKey).map((pkFieldName, index) => [
+        pkFieldName,
+        pkValues[index] ?? '',
+      ])
+    ).toString();
 
-      const responseAnswer: ApiResponse = await response.json();
+    const response = await fetch(`${API_BASE}/${tableKey}?${queryParams}`, {
+      method: 'DELETE',
+    });
 
-      if (!responseAnswer.success) {
-        return showErrorMessage(responseAnswer.message ?? 'Error deleting record');
-      }
-
-      showSuccessMessage(responseAnswer.message ?? '');
-      loadTableData(tableKey);
-    } catch (error) {
-      console.error(`Error deleting ${tableKey}:`, error);
-      alert('No se pudo conectar con el servidor / Could not reach the server');
+    if (!response.ok) {
+      return showErrorMessage(await errorMessage(response));
     }
+
+    const responseAnswer: ApiResponse = await response.json();
+
+    if (!responseAnswer.success) {
+      return showErrorMessage(responseAnswer.message ?? 'Error deleting record');
+    }
+
+    showSuccessMessage(responseAnswer.message ?? '');
+    loadTableData(tableKey);
+  } catch (error) {
+    console.error(`Error deleting ${tableKey}:`, error);
+    alert('No se pudo conectar con el servidor / Could not reach the server');
   }
 };
 
-const renderAnyMenuOption = (key:string) => {
-  const cfg = structure.menu[key as keyof typeof structure.menu];
-  const btn = document.createElement('button');
-  btn.id = cfg.id;
-  btn.textContent = cfg.title;
-  btn.addEventListener('click', cfg.handler);
-  menuContainer.appendChild(btn);
+// -----------------------------------------------------------------------------
+// Initialization
+// -----------------------------------------------------------------------------
+
+const initialTheme = localStorage.getItem('theme') || 'light';
+document.body.setAttribute('data-theme', initialTheme);
+
+const appTitleEl = document.getElementById('app-title');
+if (appTitleEl) {
+  appTitleEl.textContent = getLocalizedText(structure.commonText.appTitle);
 }
 
-const showMenu = () => {
-  menuKeys.forEach((key) => {renderAnyMenuOption(key)});
-};
-
-function showSuccessMessage(message: string){
-  const outputContainer = document.querySelector(".successOutputInfoContainer");
-  const outputText = document.querySelector(".successOutputInfo") as HTMLDivElement;
-  if (outputContainer?.classList.contains("invisible")){
-    outputText.textContent = message;
-    outputContainer?.classList.remove("invisible");
-    setTimeout(() => {
-      outputText.textContent = '';
-      outputContainer?.classList.add("invisible");
-    }, 1500);
-  }
-}
-
-function showErrorMessage(message: string){
-  const dialog = document.createElement("dialog");
-  dialog.classList.add("dialogErrorMessage");
-  const dialogMessage       = document.createElement("p");
-  const dialogTitle         = document.createElement("h1"); 
-  const closeButton         = document.createElement("button");
-  dialogTitle.textContent   = "Error";
-  dialogMessage.textContent = message;
-  closeButton.textContent   = "Aceptar";
-  closeButton.addEventListener("click", (event) => {
-    dialog.close();
-    dialog.remove();
-  })
-  dialog.addEventListener("click", (event) => {
-    const dialogRect = dialog.getBoundingClientRect();
-    if (event.clientX < dialogRect.left    ||
-        event.clientX > dialogRect.right   ||
-        event.clientY > dialogRect.bottom  || 
-        event.clientY < dialogRect.top) {
-          dialog.close();
-          dialog.remove();
-    }   
-  });
-  appendChildsToElement(dialog, [dialogTitle, dialogMessage, closeButton]);
-  document.querySelector(".container")?.appendChild(dialog);
-  dialog.setAttribute('closedby', 'any');
-  dialog.showModal();
-}
-
-function appendChildsToElement(element: HTMLElement, childs: HTMLElement[]){
-  childs.forEach(child => element.appendChild(child));
-}
-
-// Initialize
+createTableNavButtons();
 syncUrlToState();
-showSection(activeTableKey, true);
+showSection(activeTableKey, false);
 showMenu();
 
-export { };
+export {};

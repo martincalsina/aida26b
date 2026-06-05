@@ -1,84 +1,205 @@
-import {TableStructure} from '../types/types';
+import { TableStructure } from '../types/types';
+
+type LocalizedText = {
+  es: string;
+  en: string;
+};
 
 export const structure = {
   tables: {
     students: {
-      columns:{
-        numero_libreta   :{type: 'string', label: "Número de Libreta / Student ID:", readonlyOnEdit: true, validator: { required: true, pattern: '^\\d{1,4}/\\d{2}$', patternMessage: 'must match pattern NNNN/YY (1-4 digit number, slash, 2-digit year; leading zeros optional on the number)', normalize: { pattern: '^0+(?=\\d)', replacement: '' } }},
-        dni              :{type: 'string', label: 'DNI / ID Number:', validator: { required: true, pattern: '^\\d{7,8}$', patternMessage: 'must be 7 or 8 digits' }},
-        first_name       :{type: 'string', label: 'Nombre / First Name:', validator: { required: true, pattern: '^\\D+$', patternMessage: 'must not contain numbers' }},
-        last_name        :{type: 'string', label: 'Apellido / Last Name:', validator: { required: true, pattern: '^\\D+$', patternMessage: 'must not contain numbers' }},
-        email            :{type: 'string', label: 'Email:', input: 'email', validator: { nullable: true, pattern: '^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$', patternMessage: 'must be a valid email address' }},
-        enrollment_date  :{type: 'string', label: 'Fecha de Inscripción / Enrollment Date:', input: 'date', validator: { nullable: true, minDate: '1821-08-09', maxDayOffset: 0 }},
-        status           :{type: 'string', label: 'Estado / Status:', input: 'select', validator: { nullable: true }, options: [
-          { value: 'active', label: 'Activo / Active' },
-          { value: 'graduated', label: 'Graduado / Graduated' },
-          { value: 'interrupted', label: 'Interrumpido / Interrupted' },
-        ]},
-      },
-      pk: 'numero_libreta',
-      uiName: 'Student',
-      title: 'Alumnos / Students',
-      addButtonLabel: 'Agregar Alumno / Add Student'
-    } satisfies TableStructure,
-    subjects: {
-      columns:{
-        cod_mat     :{type: 'string', label: 'Código / Code:', readonlyOnEdit: true, validator: { required: true }},
-        name        :{type: 'string', label: 'Nombre / Name:', validator: { required: true }},
-        description :{type: 'string', label: 'Descripción / Description:', input: 'textarea', validator: { nullable: true }},
-        credits     :{type: 'number', label: 'Créditos / Credits:', input: 'number', validator: { nullable: true, integer: true, minValue: 1 }},
-        department  :{type: 'string', label: 'Departamento / Department:', validator: { nullable: true }},
-      },
-      pk: 'cod_mat',
-      uiName: 'Subject',
-      title: 'Materias / Subjects',
-      addButtonLabel: 'Agregar Materia / Add Subject'
-    } satisfies TableStructure,
-    enrollments: {
-      pk: ['numero_libreta', 'cod_mat'],
-      uiName: 'Enrollment',
       columns: {
         numero_libreta: {
           type: 'string',
-          label: 'Número de Libreta / Student ID:',
+          label: { es: 'Número de Libreta', en: 'Student ID' },
           readonlyOnEdit: true,
           validator: {
             required: true,
             pattern: '^\\d{1,4}/\\d{2}$',
-            patternMessage: 'must match pattern NNNN/YY (1-4 digit number, slash, 2-digit year; leading zeros optional on the number)',
+            patternMessage:
+              'must match pattern NNNN/YY (1-4 digit number, slash, 2-digit year; leading zeros optional on the number)',
             normalize: {
               pattern: '^0+(?=\\d)',
-              replacement: ''
-            }
+              replacement: '',
+            },
+          },
+        },
+
+        dni: {
+          type: 'string',
+          label: { es: 'DNI', en: 'ID Number' },
+          validator: {
+            required: true,
+            pattern: '^\\d{7,8}$',
+            patternMessage: 'must be 7 or 8 digits',
+          },
+        },
+
+        first_name: {
+          type: 'string',
+          label: { es: 'Nombre', en: 'First Name' },
+          validator: {
+            required: true,
+            pattern: '^\\D+$',
+            patternMessage: 'must not contain numbers',
+          },
+        },
+
+        last_name: {
+          type: 'string',
+          label: { es: 'Apellido', en: 'Last Name' },
+          validator: {
+            required: true,
+            pattern: '^\\D+$',
+            patternMessage: 'must not contain numbers',
+          },
+        },
+
+        email: {
+          type: 'string',
+          label: { es: 'Email', en: 'Email' },
+          input: 'email',
+          validator: {
+            nullable: true,
+            pattern: '^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$',
+            patternMessage: 'must be a valid email address',
+          },
+        },
+
+        enrollment_date: {
+          type: 'string',
+          label: { es: 'Fecha de Inscripción', en: 'Enrollment Date' },
+          input: 'date',
+          validator: {
+            nullable: true,
+            minDate: '1821-08-09',
+            maxDayOffset: 0,
+          },
+        },
+
+        status: {
+          type: 'string',
+          label: { es: 'Estado', en: 'Status' },
+          input: 'select',
+          validator: {
+            nullable: true,
+          },
+          options: [
+            { value: 'active', label: { es: 'Activo', en: 'Active' } },
+            { value: 'graduated', label: { es: 'Graduado', en: 'Graduated' } },
+            {
+              value: 'interrupted',
+              label: { es: 'Interrumpido', en: 'Interrupted' },
+            },
+          ],
+        },
+      },
+      pk: 'numero_libreta',
+      uiName: { es: 'Alumno', en: 'Student' },
+      title: { es: 'Alumnos', en: 'Students' },
+      addButtonLabel: { es: 'Agregar Alumno', en: 'Add Student' },
+    } satisfies TableStructure,
+
+    subjects: {
+      columns: {
+        cod_mat: {
+          type: 'string',
+          label: { es: 'Código', en: 'Code' },
+          readonlyOnEdit: true,
+          validator: {
+            required: true,
+          },
+        },
+
+        name: {
+          type: 'string',
+          label: { es: 'Nombre', en: 'Name' },
+          validator: {
+            required: true,
+          },
+        },
+
+        description: {
+          type: 'string',
+          label: { es: 'Descripción', en: 'Description' },
+          input: 'textarea',
+          validator: {
+            nullable: true,
+          },
+        },
+
+        credits: {
+          type: 'number',
+          label: { es: 'Créditos', en: 'Credits' },
+          input: 'number',
+          validator: {
+            nullable: true,
+            integer: true,
+            minValue: 1,
+          },
+        },
+
+        department: {
+          type: 'string',
+          label: { es: 'Departamento', en: 'Department' },
+          validator: {
+            nullable: true,
+          },
+        },
+      },
+      pk: 'cod_mat',
+      uiName: { es: 'Materia', en: 'Subject' },
+      title: { es: 'Materias', en: 'Subjects' },
+      addButtonLabel: { es: 'Agregar Materia', en: 'Add Subject' },
+    } satisfies TableStructure,
+
+    enrollments: {
+      pk: ['numero_libreta', 'cod_mat'],
+      uiName: { es: 'Inscripción', en: 'Enrollment' },
+      columns: {
+        numero_libreta: {
+          type: 'string',
+          label: { es: 'Número de Libreta', en: 'Student ID' },
+          readonlyOnEdit: true,
+          validator: {
+            required: true,
+            pattern: '^\\d{1,4}/\\d{2}$',
+            patternMessage:
+              'must match pattern NNNN/YY (1-4 digit number, slash, 2-digit year; leading zeros optional on the number)',
+            normalize: {
+              pattern: '^0+(?=\\d)',
+              replacement: '',
+            },
           },
           input: 'select',
           foreignKey: {
             table: 'students',
             valueField: 'numero_libreta',
-            labelField: `first_name || ' ' || last_name`
-          }
+            labelField: `first_name || ' ' || last_name`,
+          },
         },
 
         student_name: {
           type: 'string',
-          label: 'Nombre del Alumno / Student Name:',
+          label: { es: 'Nombre del Alumno', en: 'Student Name' },
           editable: false,
           derivable: {
             originTable: 'students',
-            sqlGenerationStatement: `entityName.first_name || ' ' || entityName.last_name`
-          }
+            sqlGenerationStatement:
+              `entityName.first_name || ' ' || entityName.last_name`,
+          },
         },
 
         cod_mat: {
           type: 'string',
-          label: 'Código de Materia / Subject Code:',
+          label: { es: 'Código de Materia', en: 'Subject Code' },
           readonlyOnEdit: true,
           validator: {
-            required: true
+            required: true,
           },
-          input: 'select', 
+          input: 'select',
           foreignKey: {
-            table: "subjects",
+            table: 'subjects',
             valueField: 'cod_mat',
             labelField: 'name',
           },
@@ -86,83 +207,119 @@ export const structure = {
 
         subject_name: {
           type: 'string',
-          label: 'Nombre de Materia / Subject Name:',
+          label: { es: 'Nombre de Materia', en: 'Subject Name' },
           editable: false,
           derivable: {
             originTable: 'subjects',
-            sqlGenerationStatement: `entityName.name`
-          }
+            sqlGenerationStatement: `entityName.name`,
+          },
         },
 
         enrollment_date: {
           type: 'string',
-          label: 'Fecha de Inscripción / Enrollment Date:',
+          label: { es: 'Fecha de Inscripción', en: 'Enrollment Date' },
           input: 'date',
           validator: {
             required: true,
-            minDate: '1821-08-09'
-          }
+            minDate: '1821-08-09',
+          },
         },
 
         grade: {
           type: 'number',
-          label: 'Nota / Grade:',
+          label: { es: 'Nota', en: 'Grade' },
           input: 'number',
           validator: {
             nullable: true,
             minValue: 0,
-            maxValue: 10
-          }
+            maxValue: 10,
+          },
         },
 
         status: {
           type: 'string',
-          label: 'Estado / Status:',
+          label: { es: 'Estado', en: 'Status' },
           input: 'select',
           validator: {
-            nullable: true
+            nullable: true,
           },
           options: [
-            { value: 'enrolled', label: 'Inscrito / Enrolled' },
-            { value: 'completed', label: 'Completado / Completed' },
-            { value: 'failed', label: 'Fallido / Failed' },
-          ]
-        }
+            { value: 'enrolled', label: { es: 'Inscrito', en: 'Enrolled' } },
+            {
+              value: 'completed',
+              label: { es: 'Completado', en: 'Completed' },
+            },
+            { value: 'failed', label: { es: 'Fallido', en: 'Failed' } },
+          ],
+        },
       },
-      title: 'Inscripciones / Enrollments',
-      addButtonLabel: 'Agregar Inscripción / Add Enrollment',
-      referencedTables: ['students', 'subjects']
-    } satisfies TableStructure
+      title: { es: 'Inscripciones', en: 'Enrollments' },
+      addButtonLabel: { es: 'Agregar Inscripción', en: 'Add Enrollment' },
+      referencedTables: ['students', 'subjects'],
+    } satisfies TableStructure,
   },
+
   menu: {
-    theme:{
-      title: "🌙",
-      handler: () => {
+    theme: {
+      title: { es: 'Tema', en: 'Theme' },
+      id: 'theme-picker',
+      handler: (value: string) => {
         try {
-          const current = document.body.getAttribute("data-theme");
-          if (current === "dark") {
-            document.body.setAttribute("data-theme", "light");
-          } else {
-            document.body.setAttribute("data-theme", "dark");
-          }
+          if (!value) throw new Error('Theme value is required');
+
+          document.body.setAttribute('data-theme', value);
+          localStorage.setItem('theme', value);
         } catch (err) {
-          console.error("Theme toggle failed:", err);
-          alert("Error al cambiar el tema / Error changing theme");
+          console.error('Error changing theme:', err);
+          alert('Error al cambiar el tema / Error changing theme');
         }
       },
-      id: "theme-toggle"
+      options: [
+        { value: 'light', label: { es: 'Claro', en: 'Light' } },
+        { value: 'dark', label: { es: 'Oscuro', en: 'Dark' } },
+      ],
+      initial: () => localStorage.getItem('theme') || 'light',
     },
-    lenguage: {
-      title: "EN/ES",
-      handler: () => {
+
+    language: {
+      title: { es: 'Idioma', en: 'Language' },
+      id: 'language-picker',
+      handler: (value: string) => {
         try {
-          alert("Funcionalidad de cambio de idioma no implementada / Language toggle not implemented");
+          if (value !== 'es' && value !== 'en') {
+            throw new Error('Invalid language value');
+          }
+
+          localStorage.setItem('language', value);
+
+          window.dispatchEvent(
+            new CustomEvent('languagechange', {
+              detail: { language: value },
+            })
+          );
         } catch (err) {
-          console.error("Language toggle failed:", err);
-          alert("Error al cambiar el idioma / Error changing language");
+          console.error('Error changing language:', err);
+          alert('Error al cambiar el idioma / Error changing language');
         }
       },
-      id: "language-toggle"
-    }
-  }
-}
+      options: [
+        { value: 'es', label: { es: 'Español', en: 'Spanish' } },
+        { value: 'en', label: { es: 'Inglés', en: 'English' } },
+      ],
+      initial: () => localStorage.getItem('language') || 'es',
+    },
+  },
+
+  commonText: {
+    actions: { es: 'Acciones', en: 'Actions' },
+    add: { es: 'Agregar', en: 'Add' },
+    appTitle: {
+      es: 'Sistema de Gestión Académica',
+      en: 'Academic Management System',
+    },
+    cancel: { es: 'Cancelar', en: 'Cancel' },
+    delete: { es: 'Eliminar', en: 'Delete' },
+    edit: { es: 'Editar', en: 'Edit' },
+    update: { es: 'Actualizar', en: 'Update' },
+  } satisfies Record<string, LocalizedText>,
+};
