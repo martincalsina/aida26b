@@ -5,8 +5,9 @@
     "outDir": "./dist",
     "rootDir": "../",
     "paths": {
-      "@shared" : ["../../shared/src"]
-    }
+      "@shared/*": ["../../shared/src/*"]
+    },
+    "types": ["node"]
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
