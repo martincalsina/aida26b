@@ -1,7 +1,7 @@
 // Main application file
 // Code and comments in English
 import {structure} from '@shared/ssot/structure';
-import {TypeMap, MyTypeNames, ColumnDef, TableStructure, InferType, TableKey, TableRecordMap} from '@shared/types/types';
+import {TypeMap, MyTypeNames, ColumnDef, TableStructure, InferType, TableKey, TableRecordMap, Response} from '@shared/types/types';
 import {getPkFields} from '@shared/utils/utils';
 import '../styles/style.css';
 
@@ -502,25 +502,41 @@ function showSection(section: TableKey, pushState = true) {
 async function loadTableData<K extends TableKey>(tableKey: K) {
   try {
     const params = new URLSearchParams();
+
     params.set('page', String(currentState.page));
+
     if (currentState.sort) {
       params.set('sort', currentState.sort);
       params.set('dir', currentState.dir || 'asc');
     }
+
     for (const [fieldName, entries] of Object.entries(currentState.filters)) {
       for (const entry of entries) {
         const val = serializeFilterValue(fieldName, entry);
-        if (val !== null) params.append(`filter_${fieldName}`, val);
+        if (val !== null) {
+          params.append(`filter_${fieldName}`, val);
+        }
       }
     }
 
-    const response = await fetch(`${API_BASE}/${tableKey}?${params.toString()}`);
+    const queryString = params.toString();
+    const response = await fetch(`${API_BASE}/${tableKey}?${queryString}`);
+
     const result = await response.json();
+
+    if (!response.ok) {
+      return showErrorMessage(result.message ?? result.error ?? 'Error loading data');
+    }
+
     const data = result.data as TableRecordMap[K][];
-    const total = result.total as number;
+    const total = Number(result.total ?? data.length);
 
     renderAnyTable(tableKey, data);
     renderPagination(total);
+
+    if (result.message) {
+      showSuccessMessage(result.message);
+    }
   } catch (error) {
     console.error(`Error loading ${tableKey}:`, error);
     alert('Error al cargar datos / Error loading data');
@@ -709,16 +725,20 @@ async function showAnyForm<K extends TableKey>(tableKey: K, record?: Partial<Tab
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const payload = collectFormData(tableKey);
-
     const pkAndTheirValues = getPkFields(tableKey).map((pkFieldName) => [pkFieldName, String((payload as Record<string, unknown>)[pkFieldName])?? String((record as Record<string, unknown> | undefined)?.[pkFieldName]) ?? '']);
     const queryParams = new URLSearchParams(pkAndTheirValues).toString();
-
+    let response;    
     try {
-      await fetch(`${API_BASE}/${tableKey}?` + queryParams, {
+      response = (await fetch(`${API_BASE}/${tableKey}?` + queryParams, {
         method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
-      });
+      }));
+      const responseJson: Response = await response.json();
+      if (!responseJson.success){
+        showErrorMessage(responseJson.message ?? '');
+      }
+      showSuccessMessage(responseJson.message ?? '');
       hideAnyForm();
       loadTableData(tableKey);
     } catch (error) {
@@ -743,7 +763,12 @@ window.editRecord = async <K extends TableKey>(tableKey: K, ...pkValues: string[
   try {
     const queryParams = new URLSearchParams(getPkFields(tableKey).map((pkFieldName, index) => [pkFieldName, pkValues[index]])).toString();
     const response = await fetch(`${API_BASE}/${tableKey}?` + queryParams);
-    const record = (await response.json()) as TableRecordMap[K];
+    const responseAnswer: Response = await response.json(); 
+    const record = responseAnswer.data as TableRecordMap[K];
+    if (!responseAnswer.success){
+      return showErrorMessage(responseAnswer.message ?? '');
+    }
+    showSuccessMessage(responseAnswer.message ?? '');
     showAnyForm(tableKey, record);
   } catch (error) {
     console.error(`Error loading ${tableKey} for edit:`, error);
@@ -755,7 +780,12 @@ window.deleteRecord = async <K extends TableKey>(tableKey: K, ...pkValues: strin
   if (confirm(`¿Está seguro de que desea eliminar este ${tableConfig.uiName.toLowerCase()}? / Are you sure you want to delete this ${tableConfig.uiName.toLowerCase()}?`)) {
     try {
       const queryParams = new URLSearchParams(getPkFields(tableKey).map((pkFieldName, index) => [pkFieldName, pkValues[index]])).toString();
-      await fetch(`${API_BASE}/${tableKey}?` + queryParams, { method: 'DELETE' });
+      const response = await fetch(`${API_BASE}/${tableKey}?` + queryParams, {method: 'DELETE'});
+      const responseAnswer: Response = await response.json(); 
+      if (!responseAnswer.success){
+        return showErrorMessage(responseAnswer.message ?? '');
+      }
+      showSuccessMessage(responseAnswer.message ?? '');
       loadTableData(tableKey);
     } catch (error) {
       console.error(`Error deleting ${tableKey}:`, error);
@@ -776,6 +806,52 @@ const renderAnyMenuOption = (key:string) => {
 const showMenu = () => {
   menuKeys.forEach((key) => {renderAnyMenuOption(key)});
 };
+
+function showSuccessMessage(message: string){
+  const outputContainer = document.querySelector(".successOutputInfoContainer");
+  const outputText = document.querySelector(".successOutputInfo") as HTMLDivElement;
+  if (outputContainer?.classList.contains("invisible")){
+    outputText.textContent = message;
+    outputContainer?.classList.remove("invisible");
+    setTimeout(() => {
+      outputText.textContent = '';
+      outputContainer?.classList.add("invisible");
+    }, 1500);
+  }
+}
+
+function showErrorMessage(message: string){
+  const dialog = document.createElement("dialog");
+  dialog.classList.add("dialogErrorMessage");
+  const dialogMessage       = document.createElement("p");
+  const dialogTitle         = document.createElement("h1"); 
+  const closeButton         = document.createElement("button");
+  dialogTitle.textContent   = "Error";
+  dialogMessage.textContent = message;
+  closeButton.textContent   = "Aceptar";
+  closeButton.addEventListener("click", (event) => {
+    dialog.close();
+    dialog.remove();
+  })
+  dialog.addEventListener("click", (event) => {
+    const dialogRect = dialog.getBoundingClientRect();
+    if (event.clientX < dialogRect.left    ||
+        event.clientX > dialogRect.right   ||
+        event.clientY > dialogRect.bottom  || 
+        event.clientY < dialogRect.top) {
+          dialog.close();
+          dialog.remove();
+    }   
+  });
+  appendChildsToElement(dialog, [dialogTitle, dialogMessage, closeButton]);
+  document.querySelector(".container")?.appendChild(dialog);
+  dialog.setAttribute('closedby', 'any');
+  dialog.showModal();
+}
+
+function appendChildsToElement(element: HTMLElement, childs: HTMLElement[]){
+  childs.forEach(child => element.appendChild(child));
+}
 
 // Initialize
 syncUrlToState();

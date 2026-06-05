@@ -1,46 +1,22 @@
-import { Pool } from "pg";
-import express from 'express';
+import      { sendSuccessOperationMessage, sendNotFoundMessage, sendErrorMessage } from "../status_messages";
+import      { getEntityName, tryQuery, columnNamesEqualsNumber } from '../helpers';
+import      { assertValidDeleteInstance } from '../assertions';
+import type { TableKey, Response } from "../../../shared/src/types/types";
+import      { getPkFields } from "../../../shared/src/utils/utils";
+import        express from 'express';
+import      { Pool } from "pg";
 
-async function deleteStudent(req: express.Request, res: express.Response, pool: Pool) {
-  try {
-    const pkFieldsNames: string[] = Object.values(req.query) as string[]; 
-    const result = await pool.query('DELETE FROM students WHERE numero_libreta = $1 RETURNING *', pkFieldsNames);
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Student not found' });
-    }
-    res.json({ message: 'Student deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting student:', error);
-    res.status(500).json({ error: 'Internal server error' });
+export async function deleteHandler(req: express.Request, res: express.Response, pool: Pool) {
+  const tableName: string = req.params.tableName;
+  const pkFieldsNames: string[] = Object.values(req.query) as string[]; 
+  const entityName = getEntityName(tableName as TableKey);
+  
+  if (assertValidDeleteInstance(tableName, res, pkFieldsNames, entityName)){
+    const whereArgumentsString = columnNamesEqualsNumber(getPkFields(tableName as TableKey), 1, ' AND ');
+    const query: string = `DELETE FROM ${tableName} WHERE ${whereArgumentsString} RETURNING *`;
+    const queryResponse: Response = await tryQuery(pool, query, Object.values(req.query));
+    if (queryResponse.data?.rowCount === 0) return sendNotFoundMessage(res, entityName);
+    else if(!queryResponse.success) return sendErrorMessage(res, queryResponse.message);
+    return sendSuccessOperationMessage(res, entityName, queryResponse.data?.rows?.[0], 'deleted', 200);
   }
-};
-
-async function deleteSubject(req: express.Request, res: express.Response, pool: Pool) {
-  try {
-    const pkFieldsNames: string[] = Object.values(req.query) as string[]; 
-    const result = await pool.query('DELETE FROM subjects WHERE cod_mat = $1 RETURNING *', pkFieldsNames);
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Subject not found' });
-    }
-    res.json({ message: 'Subject deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting subject:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-};
-
-async function deleteEnrollment(req: express.Request, res: express.Response, pool: Pool) {
-  try {
-    const pkFieldsNames: string[] = Object.values(req.query) as string[]; 
-    const result = await pool.query('DELETE FROM enrollments WHERE numero_libreta = $1 AND cod_mat = $2 RETURNING *', pkFieldsNames);
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Enrollment not found' });
-    }
-    res.json({ message: 'Enrollment deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting enrollment:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-};
-
-export {deleteStudent, deleteSubject, deleteEnrollment};
+}

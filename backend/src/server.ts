@@ -4,12 +4,13 @@ import { Pool } from 'pg';
 import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
-import { getStudentsHandler, getSubjectsHandler, getEnrollmentsHandler } from './routes/get';
-import { updateStudent, updateSubject, updateEnrollment } from './routes/put';
-import { insertStudent, insertSubject, insertEnrollment } from './routes/post';
-import { deleteStudent, deleteSubject, deleteEnrollment } from './routes/delete';
 
-// Load environment variables
+import { getHandler } from './routes/get';
+import { putHandler } from './routes/put';
+import { postHandler } from './routes/post';
+import { deleteHandler } from './routes/delete';
+
+// Load environment variables before reading process.env
 dotenv.config();
 
 const app = express();
@@ -28,28 +29,29 @@ const pool = new Pool({
 app.use(cors());
 app.use(express.json());
 
-// Student routes
-app.get('/api/students', async (req, res) => getStudentsHandler(req, res, pool));
-app.post('/api/students', async (req, res) => insertStudent(req, res, pool));
-app.put('/api/students', async (req, res) => updateStudent(req, res, pool));
-app.delete('/api/students', async (req, res) => deleteStudent(req, res, pool));
+// Generic API routes
+app.get('/api/:tableName', async (req, res) => {
+  return getHandler(req, res, pool);
+});
 
-// Subjects routes
-app.get('/api/subjects', async (req, res) => getSubjectsHandler(req, res, pool));
-app.post('/api/subjects', async (req, res) => insertSubject(req, res, pool));
-app.put('/api/subjects', async (req, res) => updateSubject(req, res, pool));
-app.delete('/api/subjects', async (req, res) => deleteSubject(req, res, pool));
+app.post('/api/:tableName', async (req, res) => {
+  return postHandler(req, res, pool);
+});
 
-// Enrollments routes
-app.get('/api/enrollments', async (req, res) => getEnrollmentsHandler(req, res, pool));
-app.post('/api/enrollments', async (req, res) => insertEnrollment(req, res, pool));
-app.put('/api/enrollments', async (req, res) => updateEnrollment(req, res, pool));
-app.delete('/api/enrollments', async (req, res) => deleteEnrollment(req, res, pool));
+app.put('/api/:tableName', async (req, res) => {
+  return putHandler(req, res, pool);
+});
 
-// Resolve frontend static files directory (handles both development and production build layouts)
+app.delete('/api/:tableName', async (req, res) => {
+  return deleteHandler(req, res, pool);
+});
+
+// Resolve frontend static files directory
 let frontendDistPath = path.join(__dirname, '../../frontend/dist');
+
 if (!fs.existsSync(path.join(frontendDistPath, 'index.html'))) {
   const fallbackPath = path.join(__dirname, '../../../../frontend/dist');
+
   if (fs.existsSync(path.join(fallbackPath, 'index.html'))) {
     frontendDistPath = fallbackPath;
   }
@@ -58,8 +60,8 @@ if (!fs.existsSync(path.join(frontendDistPath, 'index.html'))) {
 // Serve static files from frontend dist
 app.use(express.static(frontendDistPath));
 
-// Catch-all handler: send back index.html for any non-API routes
-app.get('*', (req, res) => {
+// Catch-all handler for frontend routes
+app.get('*', (_req, res) => {
   res.sendFile(path.join(frontendDistPath, 'index.html'));
 });
 
