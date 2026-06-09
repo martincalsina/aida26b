@@ -9,5 +9,9 @@ module.exports = {
       tsconfig: 'tsconfig.json',
     },
   },
+  moduleNameMapper: {
+    '^@shared/(.*)$': '<rootDir>/../shared/src/$1',
+    '\\.css$': '<rootDir>/test/styleMock.js',
+  },
   moduleFileExtensions: ['ts', 'js', 'json', 'node'],
 };

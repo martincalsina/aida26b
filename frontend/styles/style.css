@@ -193,6 +193,20 @@ form {
     margin-bottom: 16px;
 }
 
+.field-error {
+    display: block;
+    margin-top: 4px;
+    min-height: 1em;
+    color: var(--danger);
+    font-size: 0.85em;
+}
+
+input.invalid,
+select.invalid,
+textarea.invalid {
+    border-color: var(--danger);
+}
+
 label {
     display: block;
     margin-bottom: 6px;
@@ -230,4 +244,71 @@ select:focus {
     display: flex;
     gap: 10px;
     margin-top: 20px;
+}
+
+.auth-section {
+    max-width: 360px;
+    margin: 0 auto;
+}
+
+.top-bar,
+.toolbar,
+.admin-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+#admin-actions[hidden] {
+    display: none;
+}
+
+.top-bar {
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+
+.toolbar {
+    flex-wrap: wrap;
+}
+
+.logout-btn {
+    background-color: var(--secondary);
+    color: white;
+}
+
+.message {
+    margin-bottom: 12px;
+    color: var(--danger);
+}
+/* Error messages dialog */
+.dialogErrorMessage{
+    background-color: #dc3546;
+    color: white;
+    border-radius: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.dialogErrorMessage button{
+    background-color: #007bff;
+    color: white;
+    border-radius: 20px;   
+}
+
+/* Success output */
+.successOutputInfoContainer {
+    border-radius: 20px;   
+    background-color: #4ccf6ac9;
+}
+
+p[class="successOutputInfo"]{
+    color: white;
+    font-weight: bold;
+    padding: 5px 10px;
+}
+
+.invisible{
+    display: none;
 }

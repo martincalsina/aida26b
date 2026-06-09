@@ -1,9 +1,13 @@
 {
-  "extends": ["../tsconfig.base.json"],
+  "extends": "../tsconfig.base.json",
   "compilerOptions": {
-    "module": "nodenext",
+    "module": "commonjs",
     "outDir": "./dist",
     "rootDir": "../",
+    "paths": {
+      "@shared/*": ["../../shared/src/*"]
+    },
+    "types": ["node"]
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]

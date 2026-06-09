@@ -1,46 +1,77 @@
-import { Pool } from "pg";
 import express from 'express';
+import { Pool } from 'pg';
 
-async function insertStudent(req: express.Request, res: express.Response, pool: Pool) {
-  try {
-    const { numero_libreta, dni, first_name, last_name, email, enrollment_date, status } = req.body;
-    const result = await pool.query(
-      'INSERT INTO students (numero_libreta, dni, first_name, last_name, email, enrollment_date, status) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
-      [numero_libreta, dni, first_name, last_name, email, enrollment_date, status]
-    );
-    res.status(201).json(result.rows[0]);
-  } catch (error) {
-    console.error('Error creating student:', error);
-    res.status(500).json({ error: 'Internal server error' });
+import { structure } from '../../../shared/src/ssot/structure';
+import type { TableKey } from '../../../shared/src/types/types';
+
+import {
+  getEntityName,
+  getNotDerivableFields,
+  tryQuery,
+  formatTableColumnsForQuery,
+} from '../helpers';
+
+import {
+  sendSuccessOperationMessage,
+  sendNotFoundMessage,
+  sendErrorMessage,
+} from '../status_messages';
+
+import {
+  validateFullObject,
+  sendErrorsIfInvalid,
+} from '../validation/validate';
+
+export async function postHandler(
+  req: express.Request,
+  res: express.Response,
+  pool: Pool
+) {
+  const tableNameParam = req.params.tableName;
+
+  if (!isKnownTable(tableNameParam)) {
+    return sendNotFoundMessage(res, tableNameParam);
   }
-};
 
-async function insertSubject(req: express.Request, res: express.Response, pool: Pool) {
-  try {
-    const { cod_mat, name, description, credits, department } = req.body;
-    const result = await pool.query(
-      'INSERT INTO subjects (cod_mat, name, description, credits, department) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [cod_mat, name, description, credits, department]
-    );
-    res.status(201).json(result.rows[0]);
-  } catch (error) {
-    console.error('Error creating subject:', error);
-    res.status(500).json({ error: 'Internal server error' });
+  const tableName = tableNameParam as TableKey;
+  const entityName = getEntityName(tableName);
+
+  const validated = validateFullObject(tableName, req.body);
+
+  if (sendErrorsIfInvalid(res, validated)) {
+    return;
   }
-};
 
-async function insertEnrollment(req: express.Request, res: express.Response, pool: Pool) {
-  try {
-    const { numero_libreta, cod_mat, enrollment_date, grade, status } = req.body;
-    const result = await pool.query(
-      'INSERT INTO enrollments (numero_libreta, cod_mat, enrollment_date, grade, status) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [numero_libreta, cod_mat, enrollment_date, grade, status]
-    );
-    res.status(201).json(result.rows[0]);
-  } catch (error) {
-    console.error('Error creating enrollment:', error);
-    res.status(500).json({ error: 'Internal server error' });
+  const notDerivableFields = getNotDerivableFields(tableName);
+
+  const valuesToInsert = notDerivableFields.map(
+    (fieldName) => (validated.data as Record<string, unknown>)[fieldName]
+  );
+
+  const [fieldNamesTuple, parametersNumbersTuple] =
+    formatTableColumnsForQuery(notDerivableFields);
+
+  const query = `
+    INSERT INTO ${tableName} ${fieldNamesTuple}
+    VALUES ${parametersNumbersTuple}
+    RETURNING *
+  `;
+
+  const queryResponse = await tryQuery(pool, query, valuesToInsert);
+
+  if (!queryResponse.success) {
+    return sendErrorMessage(res, queryResponse.message);
   }
-};
 
-export {insertStudent, insertSubject, insertEnrollment};
+  return sendSuccessOperationMessage(
+    res,
+    entityName,
+    queryResponse.data.rows[0],
+    'created',
+    201
+  );
+}
+
+function isKnownTable(tableName: string): tableName is TableKey {
+  return Object.prototype.hasOwnProperty.call(structure.tables, tableName);
+}
