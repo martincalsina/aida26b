@@ -60,6 +60,14 @@ export async function postHandler(
   const queryResponse = await tryQuery(pool, query, valuesToInsert);
 
   if (!queryResponse.success) {
+    if (queryResponse.code === '23505') {
+      return res.status(409).json({
+        success: false,
+        data: undefined,
+        message: `${entityName} already exists`,
+      });
+    }
+
     return sendErrorMessage(res, queryResponse.message);
   }
 

@@ -11,7 +11,10 @@ async function tryQuery(pool: Pool, queryStatement: string, queryArguments?: any
     return {success: true , data: await pool.query(queryStatement, queryArguments), message: ''};
   } catch (error) {
     console.error(error);
-    return {success: false, data: error, message: 'Internal server error'};
+    const code = typeof (error as { code?: unknown }).code === 'string'
+      ? (error as { code: string }).code
+      : undefined;
+    return {success: false, data: error, message: 'Internal server error', code};
   }
 }
 

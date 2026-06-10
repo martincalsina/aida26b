@@ -63,7 +63,6 @@ class FakeDb {
         role: sql.includes("'reader'") ? 'reader' : params[4],
         is_active: true,
         must_change_password: true,
-        student_numero_libreta: sql.includes('student_numero_libreta') ? params[0] : null,
       };
       this.users.push(user);
       return { rows: [publicRow(user)] };
@@ -96,6 +95,7 @@ class FakeDb {
         email: params[4],
         enrollment_date: params[5],
         status: params[6],
+        user_id: params[7] ?? null,
       };
       this.students.push(student);
       return { rows: [student] };
@@ -198,6 +198,26 @@ test('reader can read but cannot mutate academic data', async () => {
   });
 });
 
+test('duplicate student identity returns conflict', async () => {
+  const db = await makeDb();
+  await withServer(db, async (baseUrl) => {
+    const cookie = await login(baseUrl, 'editor', 'editorpass');
+    const student = {
+      numero_libreta: '101',
+      dni: '2',
+      first_name: 'Grace',
+      last_name: 'Hopper',
+      email: 'grace@example.com',
+      enrollment_date: '2026-01-01',
+      status: 'active',
+      password: 'studentpass',
+    };
+
+    assert.equal((await request(baseUrl, '/api/students', { method: 'POST', cookie, body: student })).status, 201);
+    assert.equal((await request(baseUrl, '/api/students', { method: 'POST', cookie, body: student })).status, 409);
+  });
+});
+
 test('editor can create a student account but cannot manage users', async () => {
   const db = await makeDb();
   await withServer(db, async (baseUrl) => {
@@ -208,7 +228,9 @@ test('editor can create a student account but cannot manage users', async () => 
       body: { numero_libreta: '101', dni: '2', first_name: 'Grace', last_name: 'Hopper', email: 'grace@example.com', enrollment_date: '2026-01-01', status: 'active', password: 'studentpass' },
     });
     assert.equal(createStudent.status, 201);
-    assert.equal(db.users.find((user) => user.username === '101').role, 'reader');
+    const studentUser = db.users.find((user) => user.username === '101');
+    assert.equal(studentUser.role, 'reader');
+    assert.equal(db.students.find((student) => student.numero_libreta === '101').user_id, studentUser.id);
 
     const createUser = await request(baseUrl, '/api/admin/users', { method: 'POST', cookie, body: { username: 'other', password: 'otherpass', role: 'reader' } });
     assert.equal(createUser.status, 403);

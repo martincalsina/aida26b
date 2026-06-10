@@ -5,13 +5,14 @@ export default merge(common, {
   mode: "development",
   devtool: "eval-source-map",
   devServer: {
+    host: "0.0.0.0",
     port: 8080,
     hot: true,
     historyApiFallback: true,
     proxy: [
       {
         context: ["/api"],
-        target: "http://localhost:3000",
+        target: process.env.API_URL ?? "http://localhost:3000",
       },
     ],
   },
