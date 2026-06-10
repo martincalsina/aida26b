@@ -119,6 +119,17 @@ export const structure = {
           },
         },
 
+        cod_dep: {
+          type: 'string',
+          label: { es: 'Departamento', en: 'Department' },
+          input: 'select',
+          foreignKey: {
+            table: 'departments',
+            valueField: 'cod_dep',
+            labelField: 'name'
+          }
+        },
+
         name: {
           type: 'string',
           label: { es: 'Nombre', en: 'Name' },
@@ -147,20 +158,39 @@ export const structure = {
           },
         },
 
-        department: {
+        /*department: {
           type: 'string',
           label: { es: 'Departamento', en: 'Department' },
           validator: {
             nullable: true,
           },
-        },
+        },*/
+        
       },
       pk: 'cod_mat',
       uiName: { es: 'Materia', en: 'Subject' },
       title: { es: 'Materias', en: 'Subjects' },
       addButtonLabel: { es: 'Agregar Materia', en: 'Add Subject' },
     } satisfies TableStructure,
-
+    departments: {
+      columns: {
+        cod_dep: {
+          type: 'string',
+          label: { es: 'Código', en: 'Code'},
+          required: true,
+          readonlyOnEdit: true
+        },
+        name: {
+          type: 'string',
+          label: {es: 'Nombre', en: 'Name'},
+          required: true
+        },
+      },
+      pk: 'cod_dep',
+      uiName: {es: "Departamento", en: 'Department'},
+      title: {es: "Departamentos", en: 'Departments'},
+      addButtonLabel: {es: 'Agregar Departamento',  en: 'Add Department'}
+    } satisfies TableStructure,
     enrollments: {
       pk: ['numero_libreta', 'cod_mat'],
       uiName: { es: 'Inscripción', en: 'Enrollment' },
