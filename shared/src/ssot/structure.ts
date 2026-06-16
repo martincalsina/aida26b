@@ -235,7 +235,7 @@ export const structure = {
           },
         },
 
-          department: {
+        department: {
           type: 'string',
           label: { es: 'Departamento', en: 'Department' },
           input: 'select',
@@ -243,6 +243,7 @@ export const structure = {
           validator: {
             required: true,
           },
+          readonlyOnEdit: true, 
           foreignKey: {
             table: 'departments',
             valueField: 'dept_code',
