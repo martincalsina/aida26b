@@ -4,6 +4,7 @@ type Response = {
   success: boolean;
   data: undefined | any;
   message: string;
+  code?: string;
 }
 
 type TypeMap = {

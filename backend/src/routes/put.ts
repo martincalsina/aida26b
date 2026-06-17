@@ -96,6 +96,14 @@ export async function putHandler(
   ]);
 
   if (!result.success) {
+    if (result.code === '23505') {
+      return res.status(409).json({
+        success: false,
+        data: undefined,
+        message: `${entityName} already exists`,
+      });
+    }
+
     return sendErrorMessage(res, result.message);
   }
 

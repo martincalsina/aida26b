@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # PostgreSQL Database Service
   database:
@@ -35,6 +33,9 @@ services:
       DB_NAME: ${DB_NAME:-faculty_management}
       DB_USER: ${DB_USER:-aida26_user}
       DB_PASSWORD: ${DB_PASSWORD:-CambiaEsta!}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-yourpassword}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
     ports:
       - "3000:3000"
     depends_on:
@@ -48,13 +49,14 @@ services:
       - ./backend/tsconfig.json:/app/backend/tsconfig.json
       - ./database/migrations:/app/database/migrations
       - ./tsconfig.base.json:/app/tsconfig.base.json
+      - ./shared/src:/app/shared/src
     command: sh -c "npm run migrate && npm run seed-admin && npm run dev"
 
   # Frontend Service
   frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: frontend/Dockerfile
     container_name: aida26_frontend
     ports:
       - "8080:8080"
