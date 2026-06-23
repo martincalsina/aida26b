@@ -225,7 +225,7 @@ export const structure = {
           },
         },
 
-        date: {
+        order_date: {
           type: 'string',
           label: { es: 'Fecha', en: 'Date' },
           input: 'date',
