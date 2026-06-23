@@ -15,104 +15,181 @@ function localizeText(text: LocalizedText): string {
 
 export const structure = {
   tables: {
-    students: {
+    warehouse: {
       columns: {
-        numero_libreta: {
+
+        address: {
           type: 'string',
-          label: { es: 'Número de Libreta', en: 'Student ID' },
+          label: { es: 'Dirección', en: 'Address' },
           readonlyOnEdit: true,
           validator: {
             required: true,
-            pattern: '^\\d{1,4}/\\d{2}$',
-            patternMessage:
-              'must match pattern NNNN/YY (1-4 digit number, slash, 2-digit year; leading zeros optional on the number)',
-            normalize: {
-              pattern: '^0+(?=\\d)',
-              replacement: '',
-            },
           },
         },
 
-        dni: {
-          type: 'string',
-          label: { es: 'DNI', en: 'ID Number' },
+        longitude: {
+          type: 'number',
+          label: { es: 'Longitud', en: 'Longitude' },
+          readonlyOnEdit: true,
           validator: {
             required: true,
-            pattern: '^\\d{7,8}$',
-            patternMessage: 'must be 7 or 8 digits',
           },
         },
 
-        first_name: {
-          type: 'string',
-          label: { es: 'Nombre', en: 'First Name' },
+        latitude: {
+          type: 'number',
+          label: { es: 'Longitud', en: 'Longitude' },
+          readonlyOnEdit: true,
           validator: {
             required: true,
-            pattern: '^\\D+$',
-            patternMessage: 'must not contain numbers',
           },
         },
 
-        last_name: {
+
+        name: {
           type: 'string',
-          label: { es: 'Apellido', en: 'Last Name' },
+          label: { es: 'Nombre', en: 'Name' },
           validator: {
             required: true,
-            pattern: '^\\D+$',
-            patternMessage: 'must not contain numbers',
           },
         },
 
-        email: {
+      },
+      pk: 'address',
+      uiName: { es: 'Almacén', en: 'Warehouse' },
+      title: { es: 'Almacén', en: 'Warehouse' },
+      addButtonLabel: { es: 'Añadir Almacén', en: 'Add Warehouse' },
+    } satisfies TableStructure,
+
+    transport: {
+
+      columns: {
+        license_plate: {
           type: 'string',
-          label: { es: 'Email', en: 'Email' },
-          input: 'email',
+          label: { es: "Patente", en: "License Plate"},
+          readonlyOnEdit: true,
           validator: {
-            nullable: true,
-            pattern: '^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$',
-            patternMessage: 'must be a valid email address',
+            required: true,
+            // TO DO: ponerle que sean 3 caracteres alfanuméricos, un guión y otros 3 caracteres
           },
         },
 
-        enrollment_date: {
+        warehouse_name: {
           type: 'string',
-          label: { es: 'Fecha de Inscripción', en: 'Enrollment Date' },
-          input: 'date',
+          label: {es: "Almacén", en: "Warehouse"},
+          editable: false,
+          derivable: {
+            originTable: 'warehouse',
+            sqlGenerationStatement: `entityName.name`,
+          }
+        },
+
+        warehouse_address: {
+          type: 'string',
+          label: {es: "Dirección de origen", en: "Warehouse's address"},
+          readonlyOnEdit: true,
           validator: {
-            nullable: true,
-            minDate: '1821-08-09',
-            maxDayOffset: 0,
+            required: true,
           },
+          input: 'select',
+          foreignKey: {
+            table: "warehouse",
+            valueField: "address",
+            labelField: "name"
+          }
         },
 
-        status: {
+        availability: {
+
           type: 'string',
-          label: { es: 'Estado', en: 'Status' },
+          label: {es: "Disponibilidad", en: "Availability"},
           input: 'select',
           validator: {
             nullable: true,
           },
           options: [
-            { value: 'active', label: { es: 'Activo', en: 'Active' } },
-            { value: 'graduated', label: { es: 'Graduado', en: 'Graduated' } },
+            { value: 'ready', label: { es: 'Listo', en: 'Ready to Go' } },
             {
-              value: 'interrupted',
-              label: { es: 'Interrumpido', en: 'Interrupted' },
+              value: 'travelling',
+              label: { es: 'Viajando', en: 'Travelling' },
             },
+            { value: 'broken', label: { es: 'Roto', en: 'Broken' } },
           ],
-        },
-      },
-      pk: 'numero_libreta',
-      uiName: { es: 'Alumno', en: 'Student' },
-      title: { es: 'Alumnos', en: 'Students' },
-      addButtonLabel: { es: 'Agregar Alumno', en: 'Add Student' },
-    } satisfies TableStructure,
 
-    subjects: {
+        }
+
+
+      },
+      pk: 'license_plate',
+      uiName: { es: 'Transporte', en: 'Transport' },
+      title: { es: 'Transporte', en: 'Transport' },
+      addButtonLabel: { es: 'Añadir Transporte', en: 'Add Transport' },
+
+    } satisfies TableStructure ,
+
+    stock: {
+
       columns: {
-        cod_mat: {
+
+        cod_stock: {
           type: 'string',
-          label: { es: 'Código', en: 'Code' },
+          label: {es: "Código", en: "Code"},
+          readonlyOnEdit: true,
+          validator: {
+            required: true
+          }
+        },
+
+        name: {
+          type: 'string',
+          label: {es: "Nombre", en: "Name"},
+          validator: {
+            required: true
+          }
+        }
+
+      },
+      pk: 'cod_stock',
+      uiName: {es: "Stock", en: "Stock"},
+      title: {es: "Stock", en: "Stock"},
+      addButtonLabel: {es: "Añadir Stock", en: "Add Stock"},
+
+    } satisfies TableStructure , 
+
+    client: {
+
+      columns: {
+        cuit: {
+          type: 'string',
+          label: {es: "CUIT", en: "CUIT"},
+          readonlyOnEdit: true,
+          validator: {
+            required: true,
+            // TO DO: poner el pattern del cuit dosNums-muchosNums-unNum
+          }
+        },
+
+        address: {
+          type: 'string',
+          label: { es: 'Dirección', en: 'Address' },
+          readonlyOnEdit: true,
+          validator: {
+            required: true,
+          },
+        },
+
+        longitude: {
+          type: 'number',
+          label: { es: 'Longitud', en: 'Longitude' },
+          readonlyOnEdit: true,
+          validator: {
+            required: true,
+          },
+        },
+
+        latitude: {
+          type: 'number',
+          label: { es: 'Longitud', en: 'Longitude' },
           readonlyOnEdit: true,
           validator: {
             required: true,
@@ -127,105 +204,30 @@ export const structure = {
           },
         },
 
-        description: {
-          type: 'string',
-          label: { es: 'Descripción', en: 'Description' },
-          input: 'textarea',
-          validator: {
-            nullable: true,
-          },
-        },
-
-        credits: {
-          type: 'number',
-          label: { es: 'Créditos', en: 'Credits' },
-          input: 'number',
-          validator: {
-            nullable: true,
-            integer: true,
-            minValue: 1,
-          },
-        },
-
-        department: {
-          type: 'string',
-          label: { es: 'Departamento', en: 'Department' },
-          validator: {
-            nullable: true,
-          },
-        },
       },
-      pk: 'cod_mat',
-      uiName: { es: 'Materia', en: 'Subject' },
-      title: { es: 'Materias', en: 'Subjects' },
-      addButtonLabel: { es: 'Agregar Materia', en: 'Add Subject' },
+      pk: "cuit",
+      uiName: {es: "Cliente", en: "Client"},
+      title: {es: "Cliente", en: "Client"},
+      addButtonLabel: {es: "Añadir Cliente", en: "Add Cliente"},
+
     } satisfies TableStructure,
 
-    enrollments: {
-      pk: ['numero_libreta', 'cod_mat'],
-      uiName: { es: 'Inscripción', en: 'Enrollment' },
+    order: {
       columns: {
-        numero_libreta: {
+        
+        uuid: {
           type: 'string',
-          label: { es: 'Número de Libreta', en: 'Student ID' },
+          label: { es: 'UUID', en: 'UUID' },
           readonlyOnEdit: true,
           validator: {
             required: true,
-            pattern: '^\\d{1,4}/\\d{2}$',
-            patternMessage:
-              'must match pattern NNNN/YY (1-4 digit number, slash, 2-digit year; leading zeros optional on the number)',
-            normalize: {
-              pattern: '^0+(?=\\d)',
-              replacement: '',
-            },
-          },
-          input: 'select',
-          foreignKey: {
-            table: 'students',
-            valueField: 'numero_libreta',
-            labelField: `first_name || ' ' || last_name`,
+            // TO DO: poner regex para el patrón de los UUID
           },
         },
 
-        student_name: {
+        date: {
           type: 'string',
-          label: { es: 'Nombre del Alumno', en: 'Student Name' },
-          editable: false,
-          derivable: {
-            originTable: 'students',
-            sqlGenerationStatement:
-              `entityName.first_name || ' ' || entityName.last_name`,
-          },
-        },
-
-        cod_mat: {
-          type: 'string',
-          label: { es: 'Código de Materia', en: 'Subject Code' },
-          readonlyOnEdit: true,
-          validator: {
-            required: true,
-          },
-          input: 'select',
-          foreignKey: {
-            table: 'subjects',
-            valueField: 'cod_mat',
-            labelField: 'name',
-          },
-        },
-
-        subject_name: {
-          type: 'string',
-          label: { es: 'Nombre de Materia', en: 'Subject Name' },
-          editable: false,
-          derivable: {
-            originTable: 'subjects',
-            sqlGenerationStatement: `entityName.name`,
-          },
-        },
-
-        enrollment_date: {
-          type: 'string',
-          label: { es: 'Fecha de Inscripción', en: 'Enrollment Date' },
+          label: { es: 'Fecha', en: 'Date' },
           input: 'date',
           validator: {
             required: true,
@@ -233,38 +235,127 @@ export const structure = {
           },
         },
 
-        grade: {
-          type: 'number',
-          label: { es: 'Nota', en: 'Grade' },
-          input: 'number',
+        cuit_client: {
+          type: 'string',
+          label: {es: 'Cliente', en: 'Client'},
+          input: 'select',
+          readonlyOnEdit: true,
           validator: {
-            nullable: true,
-            minValue: 0,
-            maxValue: 10,
+            required: true,
           },
+          foreignKey: {
+            table: "client",
+            valueField: "cuit",
+            labelField: "name"
+          }
+        },
+
+        plate_transport: {
+          type: 'string',
+          label: {es: 'Transport', en: 'Transport'},
+          input: 'select',
+          validator: {
+            required: true,
+            // TO DO: hay que poner una validación para que sólo se valgan transportes ready
+          },
+          foreignKey: {
+            table: "transport",
+            valueField: "license_plate",
+            labelField: "license_plate",
+          }
         },
 
         status: {
+
           type: 'string',
-          label: { es: 'Estado', en: 'Status' },
+          label: {es: "Estado", en: "Status"},
           input: 'select',
           validator: {
             nullable: true,
           },
           options: [
-            { value: 'enrolled', label: { es: 'Inscrito', en: 'Enrolled' } },
+            { value: 'preparing', label: { es: 'Preparando', en: 'Preparing' } },
             {
-              value: 'completed',
-              label: { es: 'Completado', en: 'Completed' },
+              value: 'travelling',
+              label: { es: 'Viajando', en: 'Travelling' },
             },
-            { value: 'failed', label: { es: 'Fallido', en: 'Failed' } },
+            { value: 'delivered', label: { es: 'Entregado', en: 'Delivered' } },
           ],
+
         },
+
       },
-      title: { es: 'Inscripciones', en: 'Enrollments' },
-      addButtonLabel: { es: 'Agregar Inscripción', en: 'Add Enrollment' },
-      referencedTables: ['students', 'subjects'],
+      pk: 'uuid',
+      uiName: { es: 'Pedido', en: 'Order' },
+      title: { es: 'Pedido', en: 'Order' },
+      addButtonLabel: { es: 'Agregar Pedido', en: 'Add Order' },
+      referencedTables: ['client', 'transport'],
     } satisfies TableStructure,
+
+    item: {
+
+      columns: {
+
+        cod_item: {
+          type: 'string',
+          label: { es: 'Item', en: 'Item' },
+          validator: {
+            required: true,
+            // TO DO: quizás validar el código. Ni idea, ponele que los libros tienen ISBN que tienen un formato estándar, podríamos inventarnos que nuestro sistemita también tiene uno con ese espíritu
+          }
+        },
+
+        cod_stock: {
+          type: 'string',
+          label: { es: 'Tipo', en: 'Type' },
+          validator: {
+            required: true,
+          },
+          input: 'select',
+          foreignKey: {
+            table: "stock",
+            valueField: "cod_stock",
+            labelField: "name",
+          }
+        },
+
+        warehouse_address: {
+          type: 'string',
+          label: { es: "Almacén", en: "Warehouse" },
+          readonlyOnEdit: true,
+          validator: {
+            required: true,
+          },
+          input: 'select',
+          foreignKey: {
+            table: "warehouse",
+            valueField: "address",
+            labelField: "name"
+          }
+        },
+
+        order_uuid: {
+          type: 'string',
+          label: { es: "Pedido", en: "Order" },
+          validator: {
+            nullable: true,
+          },
+          input: 'select',
+          foreignKey: {
+            table: "order",
+            valueField: "uuid",
+            labelField: "uuid"
+          }
+        }
+
+      },
+      pk: "cod_item",
+      uiName: { es: 'Item', en: 'Item' },
+      title: { es: 'Item', en: 'Item' },
+      addButtonLabel: { es: 'Agregar Item', en: 'Add Item' },
+      referencedTables: ['stock', 'order'],
+    } satisfies TableStructure,
+
   },
 
   menu: {
