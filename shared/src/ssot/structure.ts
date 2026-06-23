@@ -15,7 +15,7 @@ function localizeText(text: LocalizedText): string {
 
 export const structure = {
   tables: {
-    warehouse: {
+    warehouses: {
       columns: {
 
         address: {
@@ -61,7 +61,7 @@ export const structure = {
       addButtonLabel: { es: 'Añadir Almacén', en: 'Add Warehouse' },
     } satisfies TableStructure,
 
-    transport: {
+    transports: {
 
       columns: {
         license_plate: {
@@ -79,7 +79,7 @@ export const structure = {
           label: {es: "Almacén", en: "Warehouse"},
           editable: false,
           derivable: {
-            originTable: 'warehouse',
+            originTable: 'warehouses',
             sqlGenerationStatement: `entityName.name`,
           }
         },
@@ -93,7 +93,7 @@ export const structure = {
           },
           input: 'select',
           foreignKey: {
-            table: "warehouse",
+            table: "warehouses",
             valueField: "address",
             labelField: "name"
           }
@@ -127,7 +127,7 @@ export const structure = {
 
     } satisfies TableStructure ,
 
-    stock: {
+    stocks: {
 
       columns: {
 
@@ -156,7 +156,7 @@ export const structure = {
 
     } satisfies TableStructure , 
 
-    client: {
+    clients: {
 
       columns: {
         cuit: {
@@ -212,7 +212,7 @@ export const structure = {
 
     } satisfies TableStructure,
 
-    order: {
+    orders: {
       columns: {
         
         uuid: {
@@ -244,7 +244,7 @@ export const structure = {
             required: true,
           },
           foreignKey: {
-            table: "client",
+            table: "clients",
             valueField: "cuit",
             labelField: "name"
           }
@@ -259,7 +259,7 @@ export const structure = {
             // TO DO: hay que poner una validación para que sólo se valgan transportes ready
           },
           foreignKey: {
-            table: "transport",
+            table: "transports",
             valueField: "license_plate",
             labelField: "license_plate",
           }
@@ -292,7 +292,7 @@ export const structure = {
       referencedTables: ['client', 'transport'],
     } satisfies TableStructure,
 
-    item: {
+    items: {
 
       columns: {
 
@@ -313,7 +313,7 @@ export const structure = {
           },
           input: 'select',
           foreignKey: {
-            table: "stock",
+            table: "stocks",
             valueField: "cod_stock",
             labelField: "name",
           }
@@ -328,7 +328,7 @@ export const structure = {
           },
           input: 'select',
           foreignKey: {
-            table: "warehouse",
+            table: "warehouses",
             valueField: "address",
             labelField: "name"
           }
@@ -342,7 +342,7 @@ export const structure = {
           },
           input: 'select',
           foreignKey: {
-            table: "order",
+            table: "orders",
             valueField: "uuid",
             labelField: "uuid"
           }
