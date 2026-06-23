@@ -1,29 +1,40 @@
-CREATE TABLE students (
-    numero_libreta  VARCHAR(20) PRIMARY KEY,
-    dni             VARCHAR(20) NOT NULL,
-    first_name      VARCHAR(100) NOT NULL,
-    last_name       VARCHAR(100) NOT NULL,
-    email           VARCHAR(255),
-    enrollment_date DATE,
+CREATE TABLE warehouses (
+    address         VARCHAR(100) PRIMARY KEY,
+    longitude       INTEGER NOT NULL,
+    latitude        INTEGER NOT NULL,
+    name       VARCHAR(100) NOT NULL
+);
+
+CREATE TABLE transports (
+    license_plate           VARCHAR(8) PRIMARY KEY,
+    warehouse_address       VARCHAR(100) REFERENCES warehouses(ADDRESS) NOT NULL,
+    status                  VARCHAR(50)
+);
+
+CREATE TABLE stocks (
+    cod_stock       VARCHAR(100) PRIMARY KEY,
+    name            VARCHAR(200) NOT NULL
+);
+
+CREATE TABLE clients (
+    cuit            VARCHAR(30) PRIMARY KEY,
+    address         VARCHAR(100) NOT NULL,
+    longitude       INTEGER NOT NULL,
+    latitude        INTEGER NOT NULL,
+    name            VARCHAR(100) NOT NULL
+);
+
+CREATE TABLE orders (
+    uuid            VARCHAR(30) PRIMARY KEY,
+    order_date      DATE NOT NULL,
+    cuit_client     VARCHAR(30) REFERENCES clients(cuit) NOT NULL,
+    plate_transport VARCHAR(8) REFERENCES transports(license_plate) NOT NULL,
     status          VARCHAR(50)
 );
 
-CREATE TABLE subjects (
-    cod_mat     VARCHAR(20) PRIMARY KEY,
-    name        VARCHAR(200) NOT NULL,
-    description TEXT,
-    credits     INTEGER,
-    department  VARCHAR(100)
+CREATE TABLE items (
+    cod_item                VARCHAR(30) PRIMARY KEY,
+    type                    VARCHAR(100) REFERENCES stocks(cod_stock) NOT NULL,
+    warehouse_address       VARCHAR(100) REFERENCES warehouses(address) NOT NULL,
+    order_uuid              VARCHAR(30) REFERENCES orders(uuid)
 );
-
-CREATE TABLE enrollments (
-    numero_libreta  VARCHAR(20) REFERENCES students(numero_libreta),
-    cod_mat         VARCHAR(20) REFERENCES subjects(cod_mat),
-    enrollment_date DATE NOT NULL,
-    grade           NUMERIC(5,2),
-    status          VARCHAR(50),
-    PRIMARY KEY (numero_libreta, cod_mat)
-);
-
-CREATE INDEX idx_students_status    ON students(status);
-CREATE INDEX idx_enrollments_status ON enrollments(status);
