@@ -84,7 +84,7 @@ export const structure = {
           }
         },
 
-        warehouse_address: {
+        address: {
           type: 'string',
           label: {es: "Dirección de origen", en: "Warehouse's address"},
           readonlyOnEdit: true,
@@ -124,7 +124,7 @@ export const structure = {
       uiName: { es: 'Transportes', en: 'Transports' },
       title: { es: 'Transporte', en: 'Transport' },
       addButtonLabel: { es: 'Añadir Transporte', en: 'Add Transport' },
-      //referencedTables: ['warehouses'],
+      referencedTables: ['warehouses'],
     } satisfies TableStructure ,
 
     stocks: {

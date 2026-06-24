@@ -7,7 +7,7 @@ CREATE TABLE warehouses (
 
 CREATE TABLE transports (
     license_plate           VARCHAR(8) PRIMARY KEY,
-    warehouse_address       VARCHAR(100) REFERENCES warehouses(ADDRESS) NOT NULL,
+    address       VARCHAR(100) REFERENCES warehouses(address) NOT NULL,
     availability            VARCHAR(50)
 );
 
