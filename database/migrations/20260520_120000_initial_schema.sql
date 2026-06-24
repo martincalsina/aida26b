@@ -8,7 +8,7 @@ CREATE TABLE warehouses (
 CREATE TABLE transports (
     license_plate           VARCHAR(8) PRIMARY KEY,
     warehouse_address       VARCHAR(100) REFERENCES warehouses(ADDRESS) NOT NULL,
-    status                  VARCHAR(50)
+    availability            VARCHAR(50)
 );
 
 CREATE TABLE stocks (
@@ -34,7 +34,7 @@ CREATE TABLE orders (
 
 CREATE TABLE items (
     cod_item                VARCHAR(30) PRIMARY KEY,
-    type                    VARCHAR(100) REFERENCES stocks(cod_stock) NOT NULL,
+    cod_stock               VARCHAR(100) REFERENCES stocks(cod_stock) NOT NULL,
     warehouse_address       VARCHAR(100) REFERENCES warehouses(address) NOT NULL,
     order_uuid              VARCHAR(30) REFERENCES orders(uuid)
 );
