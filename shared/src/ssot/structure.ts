@@ -56,7 +56,7 @@ export const structure = {
 
       },
       pk: 'address',
-      uiName: { es: 'Almacén', en: 'Warehouse' },
+      uiName: { es: 'Almacenes', en: 'Warehouses' },
       title: { es: 'Almacén', en: 'Warehouse' },
       addButtonLabel: { es: 'Añadir Almacén', en: 'Add Warehouse' },
     } satisfies TableStructure,
@@ -121,10 +121,10 @@ export const structure = {
 
       },
       pk: 'license_plate',
-      uiName: { es: 'Transporte', en: 'Transport' },
+      uiName: { es: 'Transportes', en: 'Transports' },
       title: { es: 'Transporte', en: 'Transport' },
       addButtonLabel: { es: 'Añadir Transporte', en: 'Add Transport' },
-
+      //referencedTables: ['warehouses'],
     } satisfies TableStructure ,
 
     stocks: {
@@ -150,7 +150,7 @@ export const structure = {
 
       },
       pk: 'cod_stock',
-      uiName: {es: "Stock", en: "Stock"},
+      uiName: {es: "Stocks", en: "Stocks"},
       title: {es: "Stock", en: "Stock"},
       addButtonLabel: {es: "Añadir Stock", en: "Add Stock"},
 
@@ -206,7 +206,7 @@ export const structure = {
 
       },
       pk: "cuit",
-      uiName: {es: "Cliente", en: "Client"},
+      uiName: {es: "Clientes", en: "Clients"},
       title: {es: "Cliente", en: "Client"},
       addButtonLabel: {es: "Añadir Cliente", en: "Add Cliente"},
 
@@ -286,10 +286,10 @@ export const structure = {
 
       },
       pk: 'uuid',
-      uiName: { es: 'Pedido', en: 'Order' },
+      uiName: { es: 'Pedidos', en: 'Orders' },
       title: { es: 'Pedido', en: 'Order' },
       addButtonLabel: { es: 'Agregar Pedido', en: 'Add Order' },
-      referencedTables: ['client', 'transport'],
+     // referencedTables: ['clients', 'transports'],
     } satisfies TableStructure,
 
     items: {
@@ -350,10 +350,10 @@ export const structure = {
 
       },
       pk: "cod_item",
-      uiName: { es: 'Item', en: 'Item' },
+      uiName: { es: 'Items', en: 'Items' },
       title: { es: 'Item', en: 'Item' },
       addButtonLabel: { es: 'Agregar Item', en: 'Add Item' },
-      referencedTables: ['stock', 'order'],
+      //referencedTables: ['stocks', 'orders', 'warehouses'],
     } satisfies TableStructure,
 
   },
