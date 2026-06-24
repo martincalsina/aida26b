@@ -291,6 +291,7 @@ export const structure = {
               label: { es: 'Viajando', en: 'Travelling' },
             },
             { value: 'delivered', label: { es: 'Entregado', en: 'Delivered' } },
+            { value: `failed`, label: {es: 'No Entregado', en: `Couldn't Deliver`}},
           ],
 
         },
