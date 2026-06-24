@@ -413,7 +413,7 @@ app.post(
  * If a student is created with `password` in the body, also create its auth user.
  * Without `password`, the request falls back to the generic postHandler below.
  */
-async function createStudentWithUser(req: Request, res: express.Response) {
+async function createClientWithUser(req: Request, res: express.Response) {
   const password = readPassword(req.body.password);
 
   if (!password) {
@@ -421,13 +421,12 @@ async function createStudentWithUser(req: Request, res: express.Response) {
   }
 
   const {
-    numero_libreta,
-    dni,
-    first_name,
-    last_name,
+    cuit,
     email,
-    enrollment_date,
-    status,
+    address,
+    longitude,
+    latitude,
+    name,
   } = req.body;
 
   const client = await pool.connect();
@@ -443,7 +442,7 @@ async function createStudentWithUser(req: Request, res: express.Response) {
        VALUES ($1, $2, $3, $4, 'reader', true)
        RETURNING id`,
       [
-        numero_libreta,
+        cuit,
         email || null,
         passwordHash,
         passwordSalt,
@@ -451,32 +450,31 @@ async function createStudentWithUser(req: Request, res: express.Response) {
     );
 
     const studentResult = await client.query(
-      `INSERT INTO students
-       (numero_libreta, dni, first_name, last_name, email, enrollment_date, status, user_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `INSERT INTO clients
+       (cuit, email, address, longitude, latitude, name)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
       [
-        numero_libreta,
-        dni,
-        first_name,
-        last_name,
+        cuit,
         email,
-        enrollment_date,
-        status,
-        userResult.rows[0].id,
+        address,
+        longitude,
+        latitude,
+        name
+        //userResult.rows[0].id,
       ]
     );
 
     await client.query('COMMIT');
 
     await audit(req, 'student_user_created', 'success', {
-      username: numero_libreta,
+      username: cuit,
       user_id: userResult.rows[0].id,
     });
 
     return res.status(201).json({
       success: true,
-      message: 'Student created successfully',
+      message: 'Client created successfully',
       data: studentResult.rows[0],
     });
   } catch (error) {
@@ -485,7 +483,7 @@ async function createStudentWithUser(req: Request, res: express.Response) {
     if (isUniqueViolation(error)) {
       return res.status(409).json({
         success: false,
-        error: 'Student or username already exists',
+        error: 'Client or username already exists',
       });
     }
 
@@ -511,8 +509,8 @@ app.post(
   requirePasswordReady,
   requireAcademicWrite,
   async (req, res) => {
-    if (req.params.tableName === 'students') {
-      return createStudentWithUser(req, res);
+    if (req.params.tableName === 'clients') {
+      return createClientWithUser(req, res);
     }
 
     return postHandler(req, res, pool);

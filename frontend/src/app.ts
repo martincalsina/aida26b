@@ -1709,7 +1709,7 @@ async function showAnyForm<K extends TableKey>(
       hideAnyForm();
 
       if (tableKey === 'clients' && !isEdit && payload.password) {
-        setMessage(getLocalizedText(structure.commonText.studentAndUserCreated));
+        setMessage(getLocalizedText(structure.commonText.clientAndUserCreated));
       } else {
         showSuccessMessage(responseJson.message ?? '');
       }

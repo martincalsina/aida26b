@@ -169,6 +169,17 @@ export const structure = {
           }
         },
 
+        email: {
+          type: 'string',
+          label: { es: 'Email', en: 'Email' },
+          input: 'email',
+          validator: {
+            nullable: true,
+            pattern: '^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$',
+            patternMessage: 'must be a valid email address',
+          },
+        },
+
         address: {
           type: 'string',
           label: { es: 'Dirección', en: 'Address' },
@@ -451,7 +462,7 @@ export const structure = {
     onlyAdminCanCreateUsers: { es: 'Solo admin puede crear usuarios', en: 'Only admin can create users' },
     errorCreatingUser: { es: 'Error creando usuario', en: 'Error creating user' },
     noEditPermission: { es: 'No tenés permiso para editar', en: 'You do not have edit permission' },
-    studentAndUserCreated: { es: 'Alumno y usuario creados', en: 'Student and user created' },
+    clientAndUserCreated: { es: 'Cliente y usuario creados', en: 'Client and user created' },
     userAdded: { es: 'Usuario agregado', en: 'User added' },
 
     // Form labels
