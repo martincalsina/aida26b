@@ -318,7 +318,7 @@ export const structure = {
 
         cod_stock: {
           type: 'string',
-          label: { es: 'Tipo', en: 'Type' },
+          label: { es: 'Código de Stock', en: 'Stock Code' },
           validator: {
             required: true,
           },
