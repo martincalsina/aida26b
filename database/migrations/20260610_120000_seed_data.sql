@@ -48,11 +48,11 @@ INSERT INTO stocks VALUES
 -- ==========================
 
 INSERT INTO clients VALUES
-('20-11111111-1', 'San Martín 500', -58, -34, 'Banco Río'),
-('20-22222222-2', 'Belgrano 1200', -58, -34, 'Tech Solutions'),
-('20-33333333-3', 'Lavalle 300', -58, -35, 'Universidad Nacional'),
-('20-44444444-4', 'Mitre 890', -59, -34, 'Hospital Central'),
-('20-55555555-5', 'Rivadavia 2100', -58, -34, 'Estudio Jurídico Pérez');
+('20-11111111-1', 'pepe@gmail.com', 'San Martín 500', -58, -34, 'Banco Río'),
+('20-22222222-2', 'pepe2@gmail.com','Belgrano 1200', -58, -34, 'Tech Solutions'),
+('20-33333333-3', 'pepe3@gmail.com', 'Lavalle 300', -58, -35, 'Universidad Nacional'),
+('20-44444444-4', 'pepe4@gmail.com', 'Mitre 890', -59, -34, 'Hospital Central'),
+('20-55555555-5', 'pepe5@gmail.com', 'Rivadavia 2100', -58, -34, 'Estudio Jurídico Pérez');
 
 -- ==========================
 -- ORDERS

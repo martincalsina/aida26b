@@ -18,6 +18,7 @@ CREATE TABLE stocks (
 
 CREATE TABLE clients (
     cuit            VARCHAR(30) PRIMARY KEY,
+    email           VARCHAR(255),
     address         VARCHAR(100) NOT NULL,
     longitude       INTEGER NOT NULL,
     latitude        INTEGER NOT NULL,
