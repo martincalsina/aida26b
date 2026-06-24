@@ -9,7 +9,7 @@ CREATE TABLE auth.users (
     role VARCHAR(20) NOT NULL CHECK (role IN ('admin', 'editor', 'reader')),
     is_active BOOLEAN NOT NULL DEFAULT true,
     must_change_password BOOLEAN NOT NULL DEFAULT true,
-    client_uuid VARCHAR(20) REFERENCES client(uuid) ON DELETE SET NULL,
+    client_cuit VARCHAR(20) REFERENCES clients(cuit) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
