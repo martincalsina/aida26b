@@ -1,54 +1,42 @@
-# Mantener single source of truth, single responsability, 
+## Carrito
+- El carrito es un pequeño sistema en el frontend para que el cliente agrege items.
+- Cuando el cliente considera comprar, el carrito envia los items a un endpoint y el servidor 
+maneja automaticamente que almacenes, transporte, e items asignar.
 
-## Filtros, Orden, paginación
+## Funcionalidades para el cliente
+- Poder cancelar el pedido.
+- Ver los items y su cantidad.
+- Poder agregar o quitar items en el carrito.
+- Ver la lista de pedidos del cliente.
 
-- agregar a la app la opción de filtrar por columnas, ordenar por columnas y paginar los datos. Esto implica modificar backend y frontend.
-- este punto está muy relacionado con mostrar en la URL lo que está viendo el usuario actualmente así que entra acá también.
+## Funcionalidades para los Choferes de transporte
+- Los choferes ven los pedidos que se les asignaron y las direcciones correspondientes.
+- Reciben la proxima direccion al que tienen que ir. Esto podria ser un endpoint especifico.
+- Tiene la opcion de marcar los pedidos como enviados o no se pudo entregar.
 
-## Autenticación, recuperar password
+## Stock y compras
+- Cuando se compra, internamente el sistema elige automaticamente los almacenes y el transporte
+mas optimo para llevar el producto al cliente. Haria falta un endpoint para realizar al compra y procesar el pedido.
+- Calcular cuanto de un stock hay disponible para el cliente. Esto podria involucrar un JOIN generico o especifico
+por tabla.
+- Cuando se logra elegir el item para el pedido, se marca como "preparando" en los pedidos.
+- Una vez se marca el transporte como "Viajando", se marcan todos los pedidos asociados a ese transporte como
+"Viajando" tambien.
 
-- mínimamente usuario + contraseña, opcionalmente 2FA (pista: se puede usar alguna app como authenticator)
-- los usuarios y sus datos tienen que estar en la misma db que los datos de negocio?
-- todos los usuarios pueden hacer todo?
+## Roles y autentication
+- Extender los roles para visibilidad de filas y columnas segun cliente y chofer.
+- Restringuir acceso a endpoints basado en roles.
 
-## UX/UI
+## Visual
+- Revisar consistencia de la UI y el codigo para representar el sistema de logistica como
+cambiar de nombres academicos a nombres de logistica (ej: el titulo de la pagina).
 
-- botón de tema claro/oscuro (GR: es que me copa mucho el tema oscuro para las cosas)
-- botón para lenguaje EN / ES
-- interfaz para agregar/editar podría estar en un modal o de alguna otra forma menos fea que la actual
-- tablas arriba o en un menú a la izquierda?
-- qué hacemos con el overflow?
-- responsive?
+## Misc
+- Agregar patron regex en los 'validator' de la ssot.
+- Considerar poner columna "delivered_at_time" en los pedidos.
 
-## Foreign keys
-
-- En las inscripciones hay foreign keys, estaría bueno que cuando hay una foreign key y se desee editar/agregar una fila, estos valores estén en un select.
-- Puede tener sentido que algunas foreign keys dependan de otras, particularmente cuando son compuestas. Por ejemplo si tenemos tabla departamento y la pk de materia es el código de departamento + código de materia, tendría sentido que seleccionar un departamento te habilite únicamente a seleccionar materias de ese departamento y viceversa.
-
-## CRUD genéricos + qué es potestad del frontend y qué del backend
-
-- Si agregamos una tabla no deberíamos agregar 4 apis nuevas. Tiene que haber 1 api por cada operación que nos interese.
-- Definimos la estructura y los tipos en el frontend. Eso debería estar en el frontend o en el backend? Al frontend qué debería interesarle? Lo que necesita saber el frontend de dónde debería provenir?
-
-## Migraciones, query a base de datos, inyecciones SQL
-
-- Qué hacemos si tiene que cambiar el schema de alguna tabla? Por ej agregar algún campo
-- Qué hacemos si hay que agregar tablas?
-- Cómo construimos las queries para pegarle a la DB sin que el usuario pueda hacerse el vivo?
-
-## Validaciones de tipo, de foreign key, de fecha, de negocio, etc.
-
-- Por ejemplo si un campo tiene que seguir el formato de una regex particular, eso debería saberlo el frontend y el backend? Debería saberlo el backend y transmitírselo al frontend?
-- Quién tiene que forzar esas validaciones?
-
-## Errores + logging
-
-- Qué errores hay que logear en el backend? en dónde se guarda ese log?
-- Qué errores hay que logear en el frontend? Se los debería enviar al backend?
-- Qué errores del backend hay que mostrar en el frontend y cómo?
-
-## Testing
-
-- Qué queremos que cumpla la app end to end?
-- Qué queremos que cumpla el backend?
-- Cómo podemos testear semi-automáticamente la interacción del usuario con el frontend?
+## Consideraciones y supuestos
+- Al inicio, el sistema elegira las direcciones, los almacenes y los transportes de forma aleatoria.
+El enfoque es armar la idea base y permitir modificar la forma en que se calcula las elecciones de una forma
+sencilla sin necesidad de modificar el sistema en sí.
+- Por ahora no consideramos meter un "balance" para el cliente, por eso no consideramos meter precios tampoco.
