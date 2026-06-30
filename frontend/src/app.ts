@@ -12,15 +12,14 @@ import {
   RendererProps,
   RendererFunc,
   Response as ApiResponse,
+  Role,
 } from '@shared/types/types';
 import { getPkFields } from '@shared/utils/utils';
 import { validateField } from '@shared/validation/validate';
 import '../styles/style.css';
 
 const API_BASE = '/api';
-const PAGE_SIZE = 20;
-
-type Role = 'admin' | 'editor' | 'reader';
+const PAGE_SIZE = 15;
 
 type AuthUser = {
   id: number;

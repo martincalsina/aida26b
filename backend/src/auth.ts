@@ -1,9 +1,8 @@
 import crypto from 'crypto';
 import { promisify } from 'util';
+import { Role } from '../../shared/src/types/types';
 
 const scrypt = promisify(crypto.scrypt);
-
-export type Role = 'admin' | 'editor' | 'reader';
 
 export type AuthUser = {
   id: number;
@@ -12,13 +11,15 @@ export type AuthUser = {
   role: Role;
   is_active: boolean;
   must_change_password: boolean;
+  client_cuit?: string | null;
+  transport_license?: string | null;
 };
 
 export const SESSION_COOKIE = 'aida_session';
 export const SESSION_DAYS = 7;
 
 export function isRole(value: unknown): value is Role {
-  return value === 'admin' || value === 'editor' || value === 'reader';
+  return value === 'admin' || value === 'editor' || value === 'reader' || value === 'client' || value == 'driver';
 }
 
 export async function hashPassword(password: string, salt = crypto.randomBytes(16).toString('hex')) {
@@ -84,5 +85,13 @@ export function publicUser(row: Record<string, unknown>): AuthUser {
     role: row.role as Role,
     is_active: Boolean(row.is_active),
     must_change_password: Boolean(row.must_change_password),
+    client_cuit:
+      row.client_cuit === null || row.client_cuit === undefined
+        ? null
+        : String(row.client_cuit),
+    transport_license:
+      row.transport_license === null || row.transport_license === undefined
+        ? null
+        : String(row.transport_license),
   };
 }

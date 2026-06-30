@@ -1,5 +1,7 @@
 import { structure } from "../ssot/structure";
 
+type Role = 'admin' | 'editor' | 'reader' | 'client' | 'driver'
+
 type Response = {
   success: boolean;
   data: undefined | any;
@@ -89,4 +91,4 @@ type RendererProps<K extends TableKey> = {
 
 type RendererFunc = <K extends TableKey>(props: RendererProps<K>) => HTMLElement;
 
-export type {TypeMap, MyTypeNames, ColumnValidator, ColumnDef, TableStructure, InferType, TableKey, TableRecordMap, Response, ForeignKeyDef, Language, LocalizedText, RendererProps, RendererFunc};
+export type {Role, TypeMap, MyTypeNames, ColumnValidator, ColumnDef, TableStructure, InferType, TableKey, TableRecordMap, Response, ForeignKeyDef, Language, LocalizedText, RendererProps, RendererFunc};
