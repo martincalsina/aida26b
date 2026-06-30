@@ -17,7 +17,6 @@ export const structure = {
   tables: {
     warehouses: {
       columns: {
-
         address: {
           type: 'string',
           label: { es: 'Dirección', en: 'Address' },
@@ -26,7 +25,6 @@ export const structure = {
             required: true,
           },
         },
-
         longitude: {
           type: 'number',
           label: { es: 'Longitud', en: 'Longitude' },
@@ -35,7 +33,6 @@ export const structure = {
             required: true,
           },
         },
-
         latitude: {
           type: 'number',
           label: { es: 'Longitud', en: 'Longitude' },
@@ -44,8 +41,6 @@ export const structure = {
             required: true,
           },
         },
-
-
         name: {
           type: 'string',
           label: { es: 'Nombre', en: 'Name' },
@@ -53,16 +48,13 @@ export const structure = {
             required: true,
           },
         },
-
       },
       pk: 'address',
       uiName: { es: 'Almacenes', en: 'Warehouses' },
       title: { es: 'Almacén', en: 'Warehouse' },
       addButtonLabel: { es: 'Añadir Almacén', en: 'Add Warehouse' },
     } satisfies TableStructure,
-
     transports: {
-
       columns: {
         license_plate: {
           type: 'string',
@@ -73,7 +65,6 @@ export const structure = {
             // TO DO: ponerle que sean 3 caracteres alfanuméricos, un guión y otros 3 caracteres
           },
         },
-
         warehouse_name: {
           type: 'string',
           label: {es: "Almacén", en: "Warehouse"},
@@ -83,7 +74,6 @@ export const structure = {
             sqlGenerationStatement: `entityName.name`,
           }
         },
-
         address: {
           type: 'string',
           label: {es: "Dirección de origen", en: "Warehouse's address"},
@@ -98,9 +88,7 @@ export const structure = {
             labelField: "name"
           }
         },
-
         availability: {
-
           type: 'string',
           label: {es: "Disponibilidad", en: "Availability"},
           input: 'select',
@@ -115,10 +103,7 @@ export const structure = {
             },
             { value: 'broken', label: { es: 'Roto', en: 'Broken' } },
           ],
-
         }
-
-
       },
       pk: 'license_plate',
       uiName: { es: 'Transportes', en: 'Transports' },
@@ -126,11 +111,8 @@ export const structure = {
       addButtonLabel: { es: 'Añadir Transporte', en: 'Add Transport' },
       referencedTables: ['warehouses'],
     } satisfies TableStructure ,
-
     stocks: {
-
       columns: {
-
         cod_stock: {
           type: 'string',
           label: {es: "Código", en: "Code"},
@@ -139,7 +121,6 @@ export const structure = {
             required: true
           }
         },
-
         name: {
           type: 'string',
           label: {es: "Nombre", en: "Name"},
@@ -147,17 +128,13 @@ export const structure = {
             required: true
           }
         }
-
       },
       pk: 'cod_stock',
       uiName: {es: "Stocks", en: "Stocks"},
       title: {es: "Stock", en: "Stock"},
       addButtonLabel: {es: "Añadir Stock", en: "Add Stock"},
-
     } satisfies TableStructure , 
-
     clients: {
-
       columns: {
         cuit: {
           type: 'string',
@@ -168,7 +145,6 @@ export const structure = {
             // TO DO: poner el pattern del cuit dosNums-muchosNums-unNum
           }
         },
-
         email: {
           type: 'string',
           label: { es: 'Email', en: 'Email' },
@@ -179,7 +155,6 @@ export const structure = {
             patternMessage: 'must be a valid email address',
           },
         },
-
         address: {
           type: 'string',
           label: { es: 'Dirección', en: 'Address' },
@@ -188,7 +163,6 @@ export const structure = {
             required: true,
           },
         },
-
         longitude: {
           type: 'number',
           label: { es: 'Longitud', en: 'Longitude' },
@@ -197,7 +171,6 @@ export const structure = {
             required: true,
           },
         },
-
         latitude: {
           type: 'number',
           label: { es: 'Longitud', en: 'Longitude' },
@@ -206,7 +179,6 @@ export const structure = {
             required: true,
           },
         },
-
         name: {
           type: 'string',
           label: { es: 'Nombre', en: 'Name' },
@@ -214,18 +186,14 @@ export const structure = {
             required: true,
           },
         },
-
       },
       pk: "cuit",
       uiName: {es: "Clientes", en: "Clients"},
       title: {es: "Cliente", en: "Client"},
       addButtonLabel: {es: "Añadir Cliente", en: "Add Cliente"},
-
     } satisfies TableStructure,
-
     orders: {
       columns: {
-        
         uuid: {
           type: 'string',
           label: { es: 'UUID', en: 'UUID' },
@@ -235,7 +203,6 @@ export const structure = {
             // TO DO: poner regex para el patrón de los UUID
           },
         },
-
         order_date: {
           type: 'string',
           label: { es: 'Fecha', en: 'Date' },
@@ -245,7 +212,6 @@ export const structure = {
             minDate: '1821-08-09',
           },
         },
-
         cuit_client: {
           type: 'string',
           label: {es: 'Cliente', en: 'Client'},
@@ -260,7 +226,6 @@ export const structure = {
             labelField: "name"
           }
         },
-
         plate_transport: {
           type: 'string',
           label: {es: 'Transport', en: 'Transport'},
@@ -275,9 +240,7 @@ export const structure = {
             labelField: "license_plate",
           }
         },
-
         status: {
-
           type: 'string',
           label: {es: "Estado", en: "Status"},
           input: 'select',
@@ -293,9 +256,7 @@ export const structure = {
             { value: 'delivered', label: { es: 'Entregado', en: 'Delivered' } },
             { value: `failed`, label: {es: 'No Entregado', en: `Couldn't Deliver`}},
           ],
-
         },
-
       },
       pk: 'uuid',
       uiName: { es: 'Pedidos', en: 'Orders' },
@@ -305,9 +266,7 @@ export const structure = {
     } satisfies TableStructure,
 
     items: {
-
       columns: {
-
         cod_item: {
           type: 'string',
           label: { es: 'Item', en: 'Item' },
@@ -316,7 +275,6 @@ export const structure = {
             // TO DO: quizás validar el código. Ni idea, ponele que los libros tienen ISBN que tienen un formato estándar, podríamos inventarnos que nuestro sistemita también tiene uno con ese espíritu
           }
         },
-
         cod_stock: {
           type: 'string',
           label: { es: 'Código de Stock', en: 'Stock Code' },
@@ -330,7 +288,6 @@ export const structure = {
             labelField: "name",
           }
         },
-
         warehouse_address: {
           type: 'string',
           label: { es: "Almacén", en: "Warehouse" },
@@ -345,7 +302,6 @@ export const structure = {
             labelField: "name"
           }
         },
-
         order_uuid: {
           type: 'string',
           label: { es: "Pedido", en: "Order" },
@@ -359,7 +315,6 @@ export const structure = {
             labelField: "uuid"
           }
         }
-
       },
       pk: "cod_item",
       uiName: { es: 'Items', en: 'Items' },
@@ -367,7 +322,6 @@ export const structure = {
       addButtonLabel: { es: 'Agregar Item', en: 'Add Item' },
       //referencedTables: ['stocks', 'orders', 'warehouses'],
     } satisfies TableStructure,
-
   },
 
   menu: {
@@ -377,7 +331,6 @@ export const structure = {
       handler: (value: string) => {
         try {
           if (!value) throw new Error('Theme value is required');
-
           document.body.setAttribute('data-theme', value);
           localStorage.setItem('theme', value);
         } catch (err) {
@@ -441,6 +394,9 @@ export const structure = {
     //addProfessor: { es: 'Agregar Profesor', en: 'Add Professor' },
     //addAdmin: { es: 'Agregar Admin', en: 'Add Admin' },
     added: { es: 'agregado', en: 'added' },
+
+	// Cart
+    cartActions: { es: 'Items en Carrito', en: 'Items in Cart'},
 
     // Auth / session messages
     sessionExpired: { es: 'La sesión expiró', en: 'Session expired' },

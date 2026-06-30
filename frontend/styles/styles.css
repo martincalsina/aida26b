@@ -506,3 +506,130 @@ textarea:focus {
         min-width: 550px;
     }
 }
+button {
+    padding: 4px 10px;
+    cursor: pointer;
+}
+
+/* Overlay del carrito */
+#cart-overlay {
+  display: none; /* se muestra solo con #/cart */
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0,0,0,0.5);
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+#cart-page {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  max-width: 500px;
+  width: 90%;
+  max-height: 80%;
+  overflow-y: auto;
+  font-family: sans-serif;
+}
+
+/* Estilos internos del carrito */
+.cart-list {
+  list-style: none;
+  padding: 0;
+}
+
+.cart-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.quantity-control {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.quantity-control button {
+  width: 28px;
+  height: 28px;
+}
+
+.btn-remove {
+  background: #f44336;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.btn-checkout {
+  background: #2196F3;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  font-size: 1em;
+  cursor: pointer;
+}
+
+.btn-back {
+  background: #ddd;
+  border: 1px solid #aaa;
+  border-radius: 4px;
+  padding: 8px 16px;
+  cursor: pointer;
+}
+
+.btn-checkout {
+    background: #2196F3;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    font-size: 1em;
+}
+
+.quantity-control {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.quantity-control button {
+    width: 28px;
+    height: 28px;
+}
+
+#cart-section {
+  padding: 20px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.cart-quantity-control {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.qty-btn {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  font-weight: bold;
+  cursor: pointer;
+  border: 1px solid #aaa;
+  background: #f0f0f0;
+  border-radius: 4px;
+}
+.qty-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.qty-value {
+  min-width: 24px;
+  text-align: center;
+}
