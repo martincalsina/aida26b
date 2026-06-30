@@ -5,7 +5,7 @@
 -- After this, run migrations from the backend:
 --   cd backend && npm run migrate
 
-CREATE ROLE aida26_owner WITH LOGIN;
+CREATE ROLE aida26_owner WITH LOGIN PASSWORD 'CambiaEsta!';
 CREATE ROLE aida26_user  WITH LOGIN PASSWORD 'CambiaEsta!';
 
 CREATE DATABASE faculty_management OWNER aida26_owner;
