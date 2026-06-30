@@ -122,9 +122,9 @@ export class ShoppingCart {
   }
 
   goHome(): void {
-	window.location.hash = '';
-	const cleanUrl = window.location.pathname + window.location.search;
-	history.replaceState(null, '', cleanUrl);  
+    const cleanUrl = window.location.pathname + window.location.search;
+	  history.replaceState(null, '', cleanUrl);  
+    window.dispatchEvent(new HashChangeEvent('hashchange'));
   }
 
   // ========== UI (overlay) ==========
@@ -137,7 +137,7 @@ export class ShoppingCart {
 
   private setupRouting(): void {
     window.addEventListener('hashchange', () => this.handleRouting());
-    this.handleRouting(); // estado inicial
+    //this.handleRouting(); // LO COMENTO PORQUE SINO TE ACTIVA EL APP-SHELL SIN ESTAR LOGGEADO
   }
 
   private handleRouting(): void {
@@ -146,8 +146,10 @@ export class ShoppingCart {
         this.goHome();
         return;
       }
+      console.log("Mostrando carrito")
       this.showCartPage();
     } else {
+      console.log("Ocultando carrito");
       this.hideCartPage();
     }
   }
@@ -159,6 +161,7 @@ export class ShoppingCart {
 
   private hideCartPage(): void {
     this.cartContainer.style.display = 'none';
+    this.appShell.style.display='block';
     // Solo volver a mostrar app-shell si corresponde (la app principal lo maneja)
     // No tocamos appShell aquí porque showApp ya lo mostrará cuando haya sesión.
   }
