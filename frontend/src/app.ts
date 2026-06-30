@@ -16,6 +16,7 @@ import {
 } from '@shared/types/types';
 import { getPkFields } from '@shared/utils/utils';
 import { validateField } from '@shared/validation/validate';
+import { ShoppingCart } from './cart';
 import '../styles/style.css';
 
 const API_BASE = '/api';
@@ -29,6 +30,8 @@ type AuthUser = {
   is_active: boolean;
   must_change_password: boolean;
 };
+
+var cart : ShoppingCart;
 
 // -----------------------------------------------------------------------------
 // Localization
@@ -90,6 +93,8 @@ const tableKeys = Object.keys(structure.tables) as TableKey[];
 const menuKeys = Object.keys(structure.menu) as Array<keyof typeof structure.menu>;
 const tableNavButtons = {} as Record<TableKey, HTMLButtonElement>;
 
+const openCartBtn = document.getElementById('cart-btn') as HTMLButtonElement;
+
 // -----------------------------------------------------------------------------
 // Auth/session state
 // -----------------------------------------------------------------------------
@@ -137,7 +142,7 @@ function showApp(user: AuthUser): void {
   authSection.style.display = 'none';
   passwordSection.style.display = 'none';
   appShell.style.display = 'block';
-
+  document.getElementById('cart-section')!.style.display = 'none';
   currentUserEl.textContent = `${user.username} (${user.role})`;
 
   showSection(activeTableKey, false);
@@ -687,6 +692,16 @@ window.addEventListener('languagechange', (event) => {
   }
 });
 
+function initializeCart(): void {
+  cart = new ShoppingCart((itemId, itemName) => {
+    // Fallback: se dispara cada vez que un ítem es eliminado del carrito
+    // Esto se tendra que usar para visualizar un contador de cuantos items de un tipo se agregaron/quitaron al carrito.
+    showSuccessMessage(`${itemName} eliminado del carrito`);
+    // window.dispatchEvent(new CustomEvent('cart-item-removed', { detail: { id: itemId, name: itemName } }));
+
+  }, () => currentUser !== null);
+}
+
 // -----------------------------------------------------------------------------
 // Table rendering
 // -----------------------------------------------------------------------------
@@ -715,23 +730,22 @@ function renderAnyTable<K extends TableKey>(
   const tbody = sharedTable.querySelector('tbody')!;
   const tableStructure = structure.tables[tableKey];
   const showActions = canWriteAcademic();
+  const isStocksTable = tableKey === 'stocks';
 
   thead.innerHTML = '';
   tbody.innerHTML = '';
 
   const headerRow = document.createElement('tr');
 
+  // Encabezados de datos
   Object.entries(tableStructure.columns).forEach(([fieldName, column]) => {
     const th = document.createElement('th');
-
     th.textContent = getLocalizedText(column.label as LocalizedText | string) || fieldName;
     th.className = 'sortable';
     th.title = 'Click to sort';
-
     if (currentState.sort === fieldName) {
       th.classList.add(currentState.dir === 'desc' ? 'sorted-desc' : 'sorted-asc');
     }
-
     th.addEventListener('click', () => {
       if (currentState.sort === fieldName) {
         currentState.dir = currentState.dir === 'asc' ? 'desc' : 'asc';
@@ -739,15 +753,21 @@ function renderAnyTable<K extends TableKey>(
         currentState.sort = fieldName;
         currentState.dir = 'asc';
       }
-
       currentState.page = 1;
       syncStateToUrl();
       loadTableData(tableKey);
     });
-
     headerRow.appendChild(th);
   });
 
+  // Columna del carrito (solo para stocks, visible para todos)
+  if (isStocksTable) {
+    const cartHeader = document.createElement('th');
+    cartHeader.textContent = getLocalizedText(structure.commonText.cartActions);
+    headerRow.appendChild(cartHeader);
+  }
+
+  // Columna de acciones (solo si el usuario tiene permisos de escritura)
   if (showActions) {
     const actionsHeader = document.createElement('th');
     actionsHeader.textContent = getLocalizedText(structure.commonText.actions);
@@ -756,6 +776,7 @@ function renderAnyTable<K extends TableKey>(
 
   thead.appendChild(headerRow);
 
+  // Cuerpo de la tabla
   records.forEach((record) => {
     const pkFields = Array.isArray(tableStructure.pk)
       ? tableStructure.pk
@@ -766,12 +787,59 @@ function renderAnyTable<K extends TableKey>(
       keyof TableRecordMap[K] & string
     >;
 
+    // Celdas de datos
     columnNames.forEach((name) => {
       const td = document.createElement('td');
       td.textContent = String(record[name] ?? '');
       row.appendChild(td);
     });
 
+    // Celda del carrito para stocks
+    if (isStocksTable) {
+      const stockRecord = record as TableRecordMap['stocks'];
+      const cartTd = document.createElement('td');
+      const productId = String(stockRecord.cod_stock);
+      const productName = String(stockRecord.name);
+
+      const cartItem = cart.getItems().find(item => item.id === productId);
+      const currentQty = cartItem ? cartItem.quantity : 0;
+      // Contenedor del control
+      const controlDiv = document.createElement('div');
+      controlDiv.className = 'cart-quantity-control';
+
+      const qtySpan = document.createElement('span');
+      qtySpan.textContent = String(currentQty);
+      qtySpan.className = 'qty-value';
+
+      // Boton - 
+      const decBtn = document.createElement('button');
+      decBtn.textContent = '−';
+      decBtn.className = 'qty-btn';
+      decBtn.disabled = currentQty === 0;
+      decBtn.addEventListener('click', () => {
+        if (currentQty > 0) {
+          cart.removeOneItem(productId);
+          loadTableData(activeTableKey);
+        }
+      });
+      // Botón +
+      const incBtn = document.createElement('button');
+      incBtn.textContent = '+';
+      incBtn.className = 'qty-btn';
+      incBtn.addEventListener('click', () => {
+        // TODO, validar si hay stock mandando una request al API de backend. Quizas sea buena idea delegar la responsabilidad de hacer cart.addItem
+        cart.addItem({ id: productId, name: productName });
+        loadTableData(activeTableKey);
+      });
+    
+      controlDiv.appendChild(decBtn);
+      controlDiv.appendChild(qtySpan);
+      controlDiv.appendChild(incBtn);
+      cartTd.appendChild(controlDiv);
+      row.appendChild(cartTd);
+    }
+
+    // Acciones de admin (editar/eliminar)
     if (showActions) {
       const actionsTd = document.createElement('td');
       actionsTd.className = 'actions';
@@ -1925,10 +1993,15 @@ logoutBtn.addEventListener('click', async () => {
   showLogin();
 });
 
+openCartBtn.addEventListener('click', async () => {
+  cart.goCartPage();
+});
+
 async function initialize(): Promise<void> {
   createTableNavButtons();
   syncUrlToState();
   applyLanguageToUI();
+  initializeCart();
 
   try {
     const response = await fetch(`${API_BASE}/auth/me`, {
