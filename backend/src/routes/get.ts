@@ -1,6 +1,6 @@
 import { structure } from "../../../shared/src/ssot/structure";
 import express from "express";
-import { Pool } from "pg";
+import type { Pool, PoolClient } from "pg";
 
 import {
   getEntityName,
@@ -32,7 +32,7 @@ import {
 export async function getHandler(
   req: express.Request,
   res: express.Response,
-  pool: Pool
+  pool: Pool | PoolClient
 ) {
   const tableNameParam = req.params.tableName;
 
@@ -42,12 +42,13 @@ export async function getHandler(
 
   const tableName = tableNameParam as TableKey;
   const entityName = getEntityName(tableName);
+  const dbClient = pool as Pool | PoolClient;
 
   if (isListRequest(req.query)) {
-    return getListOfTable(pool, res, tableName, req.query);
+    return getListOfTable(dbClient, res, tableName, req.query);
   }
 
-  return getRowOfTable(pool, res, tableName, req.query, entityName);
+  return getRowOfTable(dbClient, res, tableName, req.query, entityName);
 }
 
 /** Query builder used by list/table views. */
@@ -337,7 +338,7 @@ function getListFilterConfig(tableName: TableKey): Record<string, ColumnDef> {
 }
 
 async function getListOfTable(
-  pool: Pool,
+  pool: Pool | PoolClient,
   res: express.Response,
   tableName: TableKey,
   query: express.Request["query"]
@@ -368,7 +369,7 @@ async function getListOfTable(
 }
 
 async function getRowByPKs(
-  pool: Pool,
+  pool: Pool | PoolClient,
   tableName: TableKey,
   pkValues: unknown[]
 ) {
@@ -388,7 +389,7 @@ async function getRowByPKs(
 }
 
 async function getRowOfTable(
-  pool: Pool,
+  pool: Pool | PoolClient,
   res: express.Response,
   tableName: TableKey,
   query: express.Request["query"],

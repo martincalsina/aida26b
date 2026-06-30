@@ -1,5 +1,5 @@
 import express from 'express';
-import { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 
 import { structure } from '../../../shared/src/ssot/structure';
 import type { TableKey, Response } from '../../../shared/src/types/types';
@@ -27,7 +27,7 @@ import {
 export async function putHandler(
   req: express.Request,
   res: express.Response,
-  pool: Pool
+  pool: Pool | PoolClient
 ) {
   const tableNameParam = req.params.tableName;
 

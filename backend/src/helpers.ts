@@ -1,12 +1,12 @@
 import type { TableKey, Response, ColumnDef, TableStructure }  from '../../shared/src/types/types';
 import      { structure } from '../../shared/src/ssot/structure';
-import type { Pool }      from 'pg';
+import type { Pool, PoolClient }      from 'pg';
 
 function getEntityName(table: TableKey): string {
   return String(structure.tables[table].uiName.en);
 }
 
-async function tryQuery(pool: Pool, queryStatement: string, queryArguments?: any): Promise<Response>{
+async function tryQuery(pool: Pool | PoolClient, queryStatement: string, queryArguments?: any): Promise<Response>{
   try {
     return {success: true , data: await pool.query(queryStatement, queryArguments), message: ''};
   } catch (error) {

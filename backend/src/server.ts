@@ -1,7 +1,7 @@
 import express from 'express';
 import type { Request, RequestHandler } from 'express';
 import cors from 'cors';
-import { Pool } from 'pg';
+import { Pool, type PoolClient } from 'pg';
 import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
@@ -32,7 +32,7 @@ const pool = new Pool({
 app.use(cors());
 app.use(express.json());
 
-type AuthedRequest = Request & { user?: auth.AuthUser };
+type AuthedRequest = Request & { user?: auth.AuthUser; dbClient?: PoolClient };
 
 function getSessionToken(req: Request) {
   return auth.parseCookies(req.headers.cookie)[auth.SESSION_COOKIE];
@@ -91,7 +91,9 @@ async function loadSession(req: Request) {
        u.email,
        u.role,
        u.is_active,
-       u.must_change_password
+       u.must_change_password,
+       u.client_cuit,
+       u.transport_license
      FROM auth.sessions s
      JOIN auth.users u ON u.id = s.user_id
      WHERE s.token_hash = $1
@@ -140,9 +142,27 @@ const requireAdmin: RequestHandler = async (req, res, next) => {
 };
 
 const requireAcademicWrite: RequestHandler = async (req, res, next) => {
-  const role = (req as AuthedRequest).user?.role;
+  const user = (req as AuthedRequest).user;
+  const role = user?.role;
+  const tableName = req.params.tableName;
 
   if (role === 'admin' || role === 'editor') {
+    return next();
+  }
+
+  if (
+    role === 'client' &&
+    req.method === 'POST' &&
+    tableName === 'orders'
+  ) {
+    return next();
+  }
+
+  if (
+    role === 'driver' &&
+    req.method === 'PUT' &&
+    tableName === 'orders'
+  ) {
     return next();
   }
 
@@ -152,6 +172,65 @@ const requireAcademicWrite: RequestHandler = async (req, res, next) => {
   });
 
   return res.status(403).json({ error: 'Forbidden' });
+};
+
+/* 
+Para que los valores de app.role/client_cuit/transport_license persistan, toda la sesión del usuario debe correr sobre
+la misma conexión a DB. Antes, para cada request se creaba una conexión nueva con "Pool", ahora usamos pool.connect() para obtener
+un PoolClient, única sesión con la que hacer las request 
+*/
+const attachDbSession: RequestHandler = async (req, res, next) => {
+  const typedReq = req as AuthedRequest;
+  const user = typedReq.user;
+
+  if (!user) {
+    return next();
+  }
+
+  const client = await pool.connect();
+
+  const cleanup = () => {
+    if (!typedReq.dbClient) {
+      return;
+    }
+
+    const releasedClient = typedReq.dbClient;
+    typedReq.dbClient = undefined;
+
+    releasedClient
+      .query(
+        `RESET app.role; RESET app.client_cuit; RESET app.transport_license`
+      )
+      .catch((error: unknown) => {
+        console.error('Error resetting session variables:', error);
+      })
+      .finally(() => releasedClient.release());
+  };
+
+  res.on('finish', cleanup);
+  res.on('close', cleanup);
+
+  try {
+    const role = user.role;
+    const clientCuit = user.client_cuit || '';
+    const transportLicense = user.transport_license || '';
+
+    await client.query("SELECT set_config('app.role', $1, false)", [role]);
+    await client.query(
+      "SELECT set_config('app.client_cuit', $1, false)",
+      [clientCuit]
+    );
+    await client.query(
+      "SELECT set_config('app.transport_license', $1, false)",
+      [transportLicense]
+    );
+
+    typedReq.dbClient = client; //forwardeamos las conexión
+    next();
+  } catch (error: unknown) {
+    client.release();
+    next(error);
+  }
 };
 
 // Auth routes
@@ -172,7 +251,9 @@ app.post('/api/auth/login', async (req, res) => {
          password_salt,
          role,
          is_active,
-         must_change_password
+         must_change_password,
+         client_cuit,
+         transport_license
        FROM auth.users
        WHERE username = $1`,
       [username]
@@ -436,19 +517,6 @@ async function createClientWithUser(req: Request, res: express.Response) {
 
     const { passwordHash, passwordSalt } = await auth.hashPassword(password);
 
-    const userResult = await client.query<{ id: number }>(
-      `INSERT INTO auth.users
-       (username, email, password_hash, password_salt, role, must_change_password)
-       VALUES ($1, $2, $3, $4, 'reader', true)
-       RETURNING id`,
-      [
-        cuit,
-        email || null,
-        passwordHash,
-        passwordSalt,
-      ]
-    );
-
     const studentResult = await client.query(
       `INSERT INTO clients
        (cuit, email, address, longitude, latitude, name)
@@ -462,6 +530,20 @@ async function createClientWithUser(req: Request, res: express.Response) {
         latitude,
         name
         //userResult.rows[0].id,
+      ]
+    );
+    
+    const userResult = await client.query<{ id: number }>(
+      `INSERT INTO auth.users
+       (username, email, password_hash, password_salt, role, client_cuit, transport_license, must_change_password)
+       VALUES ($1, $2, $3, $4, 'client', $5, NULL, true)
+       RETURNING id`,
+      [
+        cuit,
+        email || null,
+        passwordHash,
+        passwordSalt,
+        cuit
       ]
     );
 
@@ -499,21 +581,28 @@ async function createClientWithUser(req: Request, res: express.Response) {
 }
 
 // Generic academic API routes
-app.get('/api/:tableName', requireAuth, requirePasswordReady, async (req, res) => {
-  return getHandler(req, res, pool);
-});
+app.get(
+  '/api/:tableName',
+  requireAuth,
+  requirePasswordReady,
+  attachDbSession,
+  async (req: AuthedRequest, res) => {
+    return getHandler(req, res, req.dbClient ?? pool);
+  }
+);
 
 app.post(
   '/api/:tableName',
   requireAuth,
   requirePasswordReady,
+  attachDbSession,
   requireAcademicWrite,
-  async (req, res) => {
+  async (req: AuthedRequest, res) => {
     if (req.params.tableName === 'clients') {
       return createClientWithUser(req, res);
     }
 
-    return postHandler(req, res, pool);
+    return postHandler(req, res, req.dbClient ?? pool);
   }
 );
 
@@ -521,9 +610,10 @@ app.put(
   '/api/:tableName',
   requireAuth,
   requirePasswordReady,
+  attachDbSession,
   requireAcademicWrite,
-  async (req, res) => {
-    return putHandler(req, res, pool);
+  async (req: AuthedRequest, res) => {
+    return putHandler(req, res, req.dbClient ?? pool);
   }
 );
 
@@ -531,9 +621,10 @@ app.delete(
   '/api/:tableName',
   requireAuth,
   requirePasswordReady,
+  attachDbSession,
   requireAcademicWrite,
-  async (req, res) => {
-    return deleteHandler(req, res, pool);
+  async (req: AuthedRequest, res) => {
+    return deleteHandler(req, res, req.dbClient ?? pool);
   }
 );
 
