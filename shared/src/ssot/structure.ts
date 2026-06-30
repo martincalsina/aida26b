@@ -438,8 +438,8 @@ export const structure = {
     currentPassword: { es: 'Contraseña actual', en: 'Current Password' },
     newPassword: { es: 'Nueva contraseña', en: 'New Password' },
     logout: { es: 'Salir', en: 'Logout' },
-    addProfessor: { es: 'Agregar Profesor', en: 'Add Professor' },
-    addAdmin: { es: 'Agregar Admin', en: 'Add Admin' },
+    //addProfessor: { es: 'Agregar Profesor', en: 'Add Professor' },
+    //addAdmin: { es: 'Agregar Admin', en: 'Add Admin' },
     added: { es: 'agregado', en: 'added' },
 
     // Auth / session messages
@@ -464,6 +464,7 @@ export const structure = {
     errorCreatingUser: { es: 'Error creando usuario', en: 'Error creating user' },
     noEditPermission: { es: 'No tenés permiso para editar', en: 'You do not have edit permission' },
     clientAndUserCreated: { es: 'Cliente y usuario creados', en: 'Client and user created' },
+    transportAndUserCreated: {es: 'Transporte y usuario creados', en: 'Transport and user created'},
     userAdded: { es: 'Usuario agregado', en: 'User added' },
 
     // Form labels

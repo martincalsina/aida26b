@@ -491,7 +491,7 @@ app.post(
 
 /**
  * Optional special case:
- * If a student is created with `password` in the body, also create its auth user.
+ * If a client is created with `password` in the body, also create its auth user.
  * Without `password`, the request falls back to the generic postHandler below.
  */
 async function createClientWithUser(req: Request, res: express.Response) {
@@ -508,6 +508,7 @@ async function createClientWithUser(req: Request, res: express.Response) {
     longitude,
     latitude,
     name,
+    username
   } = req.body;
 
   const client = await pool.connect();
@@ -539,7 +540,7 @@ async function createClientWithUser(req: Request, res: express.Response) {
        VALUES ($1, $2, $3, $4, 'client', $5, NULL, true)
        RETURNING id`,
       [
-        cuit,
+        username,
         email || null,
         passwordHash,
         passwordSalt,
@@ -580,6 +581,87 @@ async function createClientWithUser(req: Request, res: express.Response) {
   }
 }
 
+async function createTransportWithUser(req: Request, res: express.Response) {
+  
+  const password = readPassword(req.body.password);
+
+  if (!password) {
+    return postHandler(req, res, pool);
+  }
+
+  const {
+    license_plate,
+    address,
+    availability,
+    username
+  } = req.body;
+
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const { passwordHash, passwordSalt } = await auth.hashPassword(password);
+
+    const transportResult = await client.query(
+      `INSERT INTO transports
+       (license_plate, address, availability)
+       VALUES ($1, $2, $3)
+       RETURNING *`,
+      [
+        license_plate,
+        address,
+        availability
+      ]
+    );
+    
+    const userResult = await client.query<{ id: number }>(
+      `INSERT INTO auth.users
+       (username, email, password_hash, password_salt, role, client_cuit, transport_license, must_change_password)
+       VALUES ($1, $2, $3, $4, 'driver', NULL, $5, true)
+       RETURNING id`,
+      [
+        username,
+        `${username}@gmail.com` || null,
+        passwordHash,
+        passwordSalt,
+        license_plate,
+      ]
+    );
+
+    await client.query('COMMIT');
+
+    await audit(req, 'student_user_created', 'success', {
+      username: username,
+      user_id: userResult.rows[0].id,
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: 'Client created successfully',
+      data: userResult.rows[0],
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+
+    if (isUniqueViolation(error)) {
+      return res.status(409).json({
+        success: false,
+        error: 'Transport or username already exists',
+      });
+    }
+
+    console.error('Error creating student:', error);
+
+    return res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+    });
+  } finally {
+    client.release();
+  }
+}
+
 // Generic academic API routes
 app.get(
   '/api/:tableName',
@@ -601,7 +683,9 @@ app.post(
     if (req.params.tableName === 'clients') {
       return createClientWithUser(req, res);
     }
-
+    if (req.params.tableName === 'transports') {
+      return createTransportWithUser(req, res);
+    }
     return postHandler(req, res, req.dbClient ?? pool);
   }
 );

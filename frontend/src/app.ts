@@ -78,8 +78,8 @@ const statusMessage = document.getElementById('status-message') as HTMLElement;
 const viewTitle = document.getElementById('view-title') as HTMLElement;
 const addRecordBtn = document.getElementById('add-record-btn') as HTMLButtonElement;
 const adminActions = document.getElementById('admin-actions') as HTMLElement;
-const addTeacherBtn = document.getElementById('add-teacher-btn') as HTMLButtonElement;
-const addAdminBtn = document.getElementById('add-admin-btn') as HTMLButtonElement;
+//const addTeacherBtn = document.getElementById('add-teacher-btn') as HTMLButtonElement;
+//const addAdminBtn = document.getElementById('add-admin-btn') as HTMLButtonElement;
 
 const formContainer = document.getElementById('record-form') as HTMLElement;
 const sharedTable = document.getElementById('records-table') as HTMLTableElement;
@@ -515,8 +515,8 @@ function applyStaticLanguageToUI(): void {
   setLocalizedElementText('new-password-label', structure.commonText.newPassword);
   setLocalizedElementText('password-submit-btn', structure.commonText.update);
   setLocalizedElementText('logout-btn', structure.commonText.logout);
-  setLocalizedElementText('add-teacher-btn', structure.commonText.addProfessor);
-  setLocalizedElementText('add-admin-btn', structure.commonText.addAdmin);
+  //setLocalizedElementText('add-teacher-btn', structure.commonText.addProfessor);
+  //setLocalizedElementText('add-admin-btn', structure.commonText.addAdmin);
 }
 
 function updateNavButtonsText(): void {
@@ -1263,6 +1263,25 @@ function appendPasswordField(form: HTMLFormElement, id: string, label: string): 
   form.appendChild(wrapper);
 }
 
+function appendUsernameField(form: HTMLFormElement, id: string, label: string): void {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'form-group';
+
+  const labelEl = document.createElement('label');
+  labelEl.htmlFor = id;
+  labelEl.textContent = label;
+  wrapper.appendChild(labelEl);
+
+  const input = document.createElement('input');
+  input.id = id;
+  input.type = 'text';
+  input.minLength = 5;
+  input.required = true;
+  wrapper.appendChild(input);
+
+  form.appendChild(wrapper);
+}
+
 async function renderFormField<K extends TableKey>(
   tableKey: K,
   fieldName: keyof TableRecordMap[K] & string,
@@ -1635,10 +1654,15 @@ async function showAnyForm<K extends TableKey>(
 
   fields.forEach((field) => form.appendChild(field));
 
-  if (tableKey === 'clients' && !isEdit) {
+  if (tableKey === 'clients' || tableKey === 'transports' && !isEdit) {
+    appendUsernameField(
+      form,
+      `${tableKey}-username`,
+      getLocalizedText(structure.commonText.usernameLabel)
+    );
     appendPasswordField(
       form,
-      'clients-password',
+      `${tableKey}-password`,
       getLocalizedText(structure.commonText.initialPassword)
     );
   }
@@ -1674,8 +1698,9 @@ async function showAnyForm<K extends TableKey>(
 
     const payload = collectFormData(tableKey) as Record<string, unknown>;
 
-    if (tableKey === 'clients' && !isEdit) {
-      payload.password = (document.getElementById('clients-password') as HTMLInputElement).value;
+    if (tableKey === 'clients' || tableKey === 'transports' && !isEdit) {
+      payload.password = (document.getElementById(`${tableKey}-password`) as HTMLInputElement).value;
+      payload.username = (document.getElementById(`${tableKey}-username`) as HTMLInputElement).value;
     }
 
     const pkAndTheirValues = getPkFields(tableKey).map((pkFieldName) => {
@@ -1709,6 +1734,8 @@ async function showAnyForm<K extends TableKey>(
 
       if (tableKey === 'clients' && !isEdit && payload.password) {
         setMessage(getLocalizedText(structure.commonText.clientAndUserCreated));
+      } else if (tableKey === 'transports' && !isEdit && payload.password) {
+        setMessage(getLocalizedText(structure.commonText.transportAndUserCreated))
       } else {
         showSuccessMessage(responseJson.message ?? '');
       }
@@ -1841,8 +1868,8 @@ document.body.setAttribute('data-theme', initialTheme);
 
 applyStaticLanguageToUI();
 
-addTeacherBtn.addEventListener('click', () => showUserForm('editor'));
-addAdminBtn.addEventListener('click', () => showUserForm('admin'));
+//addTeacherBtn.addEventListener('click', () => showUserForm('editor'));
+//addAdminBtn.addEventListener('click', () => showUserForm('admin'));
 
 loginForm.addEventListener('submit', async (event) => {
   event.preventDefault();
