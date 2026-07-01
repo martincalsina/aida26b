@@ -1,13 +1,13 @@
 ## Carrito
-- El carrito es un pequeño sistema en el frontend para que el cliente agrege items.
+- El carrito es un pequeño sistema en el frontend para que el cliente agregue items.
 - Cuando el cliente considera comprar, el carrito envia los items a un endpoint y el servidor 
 maneja automaticamente que almacenes, transporte, e items asignar.
 
 ## Funcionalidades para el cliente
 - Poder cancelar el pedido.
-- Ver los items y su cantidad.
-- Poder agregar o quitar items en el carrito.
-- Ver la lista de pedidos del cliente.
+- Ver los items y su cantidad. IMPLEMENTADO
+- Poder agregar o quitar items en el carrito. IMPLEMENTADO
+- Ver la lista de pedidos del cliente. IMPLEMENTADO (vía RLS)
 
 ## Funcionalidades para los Choferes de transporte
 - Los choferes ven los pedidos que se les asignaron y las direcciones correspondientes.
@@ -24,7 +24,8 @@ por tabla.
 "Viajando" tambien.
 
 ## Roles y autentication
-- Extender los roles para visibilidad de filas y columnas segun cliente y chofer.
+- Visibilidad por columnas segun cliente y chofer.
+- Visibilidad por filas según cliente y chofer. IMPLEMENTADO.
 - Restringuir acceso a endpoints basado en roles.
 
 ## Visual
@@ -44,3 +45,13 @@ sencilla sin necesidad de modificar el sistema en sí.
 ## Refactorizacion?
 - Habra que quitar los condicionales que miran isStocksTable dentro de renderAnyTable, ya que rompe con la generalizacion. Seria buena idea separarlo, luego ver si generalizar.
 - En frontend/src/app.ts, tenemos en renderAnyTable la creacion de botones. La estructura de crear los botones son muy similares. Se podria hacer un pre-createButton donde se puede incluir el JSON.stringify(pkValues) que usan las acciones por record, el addEventListener para el click, y tambien un post-createButton donde podria incluirse la forma en que se hace el append a la tabla.
+- Quitar código repetido de la creación de usuarios (chofer/cliente).
+
+
+## "INFORME"
+
+Hay que hacer un markdown con:
+
+- Lo que hicimos (sistema para...).
+- Lo que implementamos (vistas para... endpoints para...): carrito, funcionalidad de compra, etc.
+- Decisiones tomadas.
