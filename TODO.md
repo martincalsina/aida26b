@@ -45,7 +45,7 @@ sencilla sin necesidad de modificar el sistema en sí.
 ## Refactorizacion?
 - Habra que quitar los condicionales que miran isStocksTable dentro de renderAnyTable, ya que rompe con la generalizacion. Seria buena idea separarlo, luego ver si generalizar.
 - En frontend/src/app.ts, tenemos en renderAnyTable la creacion de botones. La estructura de crear los botones son muy similares. Se podria hacer un pre-createButton donde se puede incluir el JSON.stringify(pkValues) que usan las acciones por record, el addEventListener para el click, y tambien un post-createButton donde podria incluirse la forma en que se hace el append a la tabla.
-- Quitar código repetido de la creación de usuarios (chofer/cliente).
+- Quitar código repetido de la creación de usuarios (chofer/cliente): seguramente hay que ver cómo se crean queries genéricas (en el back ya habían funciones útiles para eso).
 
 
 ## "INFORME"
