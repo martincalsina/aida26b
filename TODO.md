@@ -33,7 +33,7 @@ por tabla.
 cambiar de nombres academicos a nombres de logistica (ej: el titulo de la pagina).
 
 ## Misc
-- Agregar patron regex en los 'validator' de la ssot.
+- Agregar patron regex en los 'validator' de la ssot. # PARCIALMENTE IMPLEMENTADO, HAY QUE DECIDIR COMO ES EL FORMATO PARA COD_ITEM Y LOS UUID DE LOS ITEMS
 - Considerar poner columna "delivered_at_time" en los pedidos.
 
 ## Consideraciones y supuestos

@@ -62,7 +62,9 @@ export const structure = {
           readonlyOnEdit: true,
           validator: {
             required: true,
-            // TO DO: ponerle que sean 3 caracteres alfanuméricos, un guión y otros 3 caracteres
+            pattern: '/^[A-Z0-9]{3}-[A-Z0-9]{3}$/',
+            patternMessage:
+              'must match pattern [A-Z0-9] - [A-Z0-9] (3 upper case alpha-numeric characters, one dash, 3 upper case alpha-numeric characters)',
           },
         },
         warehouse_name: {
@@ -142,7 +144,9 @@ export const structure = {
           readonlyOnEdit: true,
           validator: {
             required: true,
-            // TO DO: poner el pattern del cuit dosNums-muchosNums-unNum
+            pattern: '/^[0-9]{2}-[0-9]{8}-[0-9]{1}$/',
+            patternMessage:
+              'must match pattern CUIT (2 numbers, one dash, 8 numbers, one dash, 1 number)',
           }
         },
         email: {
