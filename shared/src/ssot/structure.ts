@@ -62,7 +62,7 @@ export const structure = {
           readonlyOnEdit: true,
           validator: {
             required: true,
-            pattern: '/^[A-Z0-9]{3}-[A-Z0-9]{3}$/',
+            pattern: '^[A-Z0-9]{3}-[A-Z0-9]{3}$',
             patternMessage:
               'must match pattern [A-Z0-9] - [A-Z0-9] (3 upper case alpha-numeric characters, one dash, 3 upper case alpha-numeric characters)',
           },
@@ -144,7 +144,7 @@ export const structure = {
           readonlyOnEdit: true,
           validator: {
             required: true,
-            pattern: '/^[0-9]{2}-[0-9]{8}-[0-9]{1}$/',
+            pattern: '^[0-9]{2}-[0-9]{8}-[0-9]{1}$',
             patternMessage:
               'must match pattern CUIT (2 numbers, one dash, 8 numbers, one dash, 1 number)',
           }
